@@ -1,0 +1,129 @@
+@reference "tailwindcss";
+
+.main-page {
+  /* Premium Mesh Background */
+  background: radial-gradient(at 0% 0%, hsla(160, 84%, 93%, 1) 0, transparent 50%), 
+              radial-gradient(at 100% 0%, hsla(180, 76%, 92%, 1) 0, transparent 50%),
+              #ffffff;
+  @apply text-slate-900 antialiased min-h-screen scroll-smooth;
+}
+
+/* --- Navbar: Solid & Bold --- */
+.main-navbar {
+  @apply sticky top-0 z-50 bg-white border-b border-slate-200;
+}
+
+.main-navbar .navbar-inner {
+  @apply max-w-6xl mx-auto flex items-center justify-between px-6 py-4;
+}
+
+.main-navbar .logo {
+  /* Consistant Italic Brand Identity */
+  @apply text-2xl font-black italic tracking-tighter text-slate-900;
+}
+
+.main-navbar ul {
+  @apply flex gap-8 text-sm font-bold text-slate-600;
+}
+
+.main-navbar a {
+  @apply hover:text-emerald-600 transition-colors;
+}
+
+/* --- Dashboard Hero --- */
+.main-hero {
+  @apply max-w-5xl mx-auto px-6 py-24 text-center;
+}
+
+.main-hero h1 {
+  /* Massive Bold Greeting */
+  @apply text-5xl md:text-7xl font-black tracking-tight text-slate-900 mb-4;
+}
+
+.main-hero p {
+  @apply text-xl text-slate-500 font-medium;
+}
+
+.main-hero button {
+  @apply mt-10 bg-emerald-600 text-white font-bold px-10 py-4 rounded-2xl 
+         hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-100;
+}
+
+/* --- Workouts: The Signature Hover Cards --- */
+.workouts-section {
+  @apply max-w-6xl mx-auto px-6 py-16;
+}
+
+.workouts-section h2 {
+  @apply text-3xl font-black italic tracking-tighter text-slate-900 text-center mb-12;
+}
+
+.card-container {
+  @apply grid sm:grid-cols-3 gap-8;
+}
+
+.card {
+  /* Clean Solid White Card */
+  @apply bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm 
+         transition-all duration-300 ease-out cursor-pointer;
+}
+
+.card:hover {
+  /* Signature Hover-Lift Effect */
+  @apply -translate-y-3 shadow-2xl shadow-emerald-200/40 border-emerald-100;
+}
+
+.card h3 {
+  @apply text-xl font-bold text-slate-900;
+}
+
+.card p {
+  /* Exercise Duration Style */
+  @apply mt-2 text-sm text-emerald-600 font-bold uppercase tracking-widest;
+}
+
+/* --- Streak Tracker: Bold & Motivational --- */
+.streak-section {
+  @apply bg-slate-950 text-white py-20 text-center my-12;
+}
+
+.streak-section h2 {
+  @apply text-2xl font-bold opacity-70 uppercase tracking-widest text-sm;
+}
+
+.streak-section p {
+  /* Huge Emerald Number with Glow */
+  @apply mt-4 text-7xl font-black italic tracking-tighter text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.3)];
+}
+
+/* --- Dashboard Benefits List --- */
+.benefits-section {
+  @apply max-w-3xl mx-auto px-6 py-20;
+}
+
+.benefits-section h2 {
+  @apply text-3xl font-black italic tracking-tighter text-slate-900 text-center mb-10;
+}
+
+.benefits-section ul {
+  @apply space-y-4;
+}
+
+.benefits-section li {
+  @apply bg-white border border-slate-200 rounded-2xl px-6 py-4 text-slate-700 
+         font-bold flex items-center gap-3 hover:border-emerald-200 transition-colors;
+}
+
+.benefits-section li::before {
+  content: "✓";
+  @apply text-emerald-500 font-black;
+}
+
+/* --- Footer --- */
+.main-footer {
+  @apply bg-white border-t border-slate-200 py-12 text-center;
+}
+
+.main-footer p {
+  @apply text-slate-400 text-xs font-bold uppercase tracking-widest;
+}
