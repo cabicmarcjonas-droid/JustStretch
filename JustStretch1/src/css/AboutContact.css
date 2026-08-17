@@ -46,6 +46,10 @@
   @apply -translate-y-2 shadow-xl border-emerald-100;
 }
 
+.team-image {
+  @apply w-32 h-32 object-cover rounded-full mx-auto mb-4;
+}
+
 .team-card h3 {
   @apply font-bold text-slate-900 text-base;
 }
