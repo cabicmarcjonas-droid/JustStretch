@@ -2,39 +2,15 @@ import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import exercises from "../data/exercises";
 import "../css/ExercisePage.css";
+import PoseTracker from "../components/PoseTracker";
 
 function ExercisePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [isActive, setIsActive] = useState(false);
-  const webcamRef = useRef(null);
-  const streamRef = useRef(null);
 
   const exercise = exercises.find((ex) => ex.id === parseInt(id));
 
-  useEffect(() => {
-    const startWebcam = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        streamRef.current = stream;
-        if (webcamRef.current) {
-          webcamRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.error("Error accessing webcam:", err);
-      }
-    };
-
-    startWebcam();
-
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
 
   if (!exercise) {
     return (
@@ -75,12 +51,7 @@ function ExercisePage() {
 
           <div className="video-box">
             <h3>Webcam</h3>
-            <video
-              className="webcam-video"
-              ref={webcamRef}
-              autoPlay
-              playsInline
-            />
+              <PoseTracker />
           </div>
         </div>
 
