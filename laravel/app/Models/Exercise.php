@@ -102,6 +102,26 @@ class Exercise extends Model
     }
 
     /**
+     * The URL to put in a <video> src or link: site-relative paths such as
+     * /videos/neck_side_tilt.mp4 (files in public/) go through asset() so they
+     * still resolve when the app is served from a subfolder.
+     *
+     * @return Attribute<string|null, never>
+     */
+    protected function videoSrc(): Attribute
+    {
+        return Attribute::get(function (): ?string {
+            $url = $this->video_url;
+
+            if (blank($url)) {
+                return null;
+            }
+
+            return str_starts_with($url, '/') ? asset(ltrim($url, '/')) : $url;
+        });
+    }
+
+    /**
      * The newline-separated instructions as a list of trimmed, non-empty steps.
      *
      * @return Attribute<list<string>, never>

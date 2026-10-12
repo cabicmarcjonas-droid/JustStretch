@@ -38,7 +38,7 @@ The app uses SQLite (`DB_CONNECTION=sqlite`) and the `Asia/Manila` timezone.
 php artisan migrate:fresh --seed
 ```
 
-This creates 10 users, 13 exercises and 40 stretch sessions.
+This creates 10 users, 15 exercises and 40 stretch sessions.
 
 ## Running
 
@@ -89,3 +89,7 @@ php artisan test
 ## Privacy
 
 Pose tracking runs entirely in the browser. No camera frames or body landmarks are sent to the server; only the score, duration and optional notes are saved.
+
+## Reference videos and pose data
+
+`public/videos/` holds the rendered Blender demo videos, which play on the matching exercise pages (Neck Side Tilt, Cross-Body Shoulder Stretch, Overhead Side Bend, Standing Hamstring Reach). `public/poses/` holds the reference pose data for the same clips (`pose_<clip>.json`), exported from Blender at 30 fps: per frame, the MediaPipe-style landmarks and joint angles. Compare the live webcam angles against `angles_2d`. The Standing Hamstring Reach clip is filmed from the side, so the user should stand side-on to the camera. The JSON files are not used by the app yet.

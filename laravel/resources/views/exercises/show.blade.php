@@ -33,7 +33,7 @@
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid gap-8 lg:grid-cols-[1fr_20rem]">
         <div class="space-y-8 min-w-0">
             @if ($exercise->video_url && $exercise->hasPlayableVideo())
-                <video src="{{ $exercise->video_url }}" controls preload="metadata" class="w-full aspect-video rounded-2xl border border-line bg-ink"></video>
+                <video src="{{ $exercise->video_src }}" controls playsinline preload="metadata" class="w-full aspect-video rounded-2xl border border-line bg-ink"></video>
             @else
                 <div class="flex aspect-video w-full flex-col items-center justify-center rounded-2xl border border-line bg-white text-center px-6">
                     <svg class="h-10 w-10 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
@@ -41,7 +41,7 @@
                     </svg>
                     @if ($exercise->video_url)
                         <p class="mt-3 font-medium">Demo video</p>
-                        <a href="{{ $exercise->video_url }}" target="_blank" rel="noopener noreferrer" class="mt-1 text-sm text-accent underline underline-offset-2 break-all">Watch on the original site</a>
+                        <a href="{{ $exercise->video_src }}" target="_blank" rel="noopener noreferrer" class="mt-1 text-sm text-accent underline underline-offset-2 break-all">Watch on the original site</a>
                     @else
                         <p class="mt-3 font-medium">Demo video coming soon</p>
                         <p class="mt-1 text-sm text-muted">Follow the written steps below in the meantime.</p>

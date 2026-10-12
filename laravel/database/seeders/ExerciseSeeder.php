@@ -50,7 +50,8 @@ class ExerciseSeeder extends Seeder
                 'target_area' => BodyArea::Neck,
                 'difficulty' => Difficulty::Beginner,
                 'description' => 'Lengthens the muscles along the side of the neck that tighten when you look down at a screen for hours.',
-                'instructions' => "Sit tall with both feet flat and shoulders relaxed.\nSlowly tilt your right ear toward your right shoulder without lifting the shoulder.\nHold for 20 seconds while breathing slowly.\nReturn to centre and repeat on the left side.",
+                'instructions' => "Sit or stand tall with your shoulders relaxed.\nSlowly tilt your right ear toward your right shoulder without lifting the shoulder.\nHold for 20 seconds while breathing slowly.\nReturn to centre and repeat on the left side.",
+                'video_url' => '/videos/neck_side_tilt.mp4',
             ],
             [
                 'title' => 'Chin Tuck',
@@ -72,6 +73,7 @@ class ExerciseSeeder extends Seeder
                 'difficulty' => Difficulty::Beginner,
                 'description' => 'Stretches the back of the shoulder and the rear deltoid, which often tighten from carrying bags on one side.',
                 'instructions' => "Stand tall and bring your right arm straight across your chest.\nUse your left forearm to gently press the right arm closer to your body.\nKeep the right shoulder down, away from your ear.\nHold for 30 seconds, then switch arms.",
+                'video_url' => '/videos/cross_body_shoulder.mp4',
             ],
             [
                 'title' => 'Doorway Chest Stretch',
@@ -135,6 +137,22 @@ class ExerciseSeeder extends Seeder
                 'difficulty' => Difficulty::Beginner,
                 'description' => 'Relieves tension in the forearm and wrist from typing, phone use and gripping.',
                 'instructions' => "Extend your right arm in front of you, palm facing up.\nUse your left hand to gently pull the right fingers down and back.\nKeep the elbow straight and shoulders relaxed.\nHold for 20 seconds, then switch hands.",
+            ],
+            [
+                'title' => 'Overhead Side Bend',
+                'target_area' => BodyArea::LowerBack,
+                'difficulty' => Difficulty::Beginner,
+                'description' => 'Stretches the sides of the trunk, from the hips up to the armpits, which stiffen after long hours of sitting.',
+                'instructions' => "Stand tall with your feet hip-width apart.\nRaise both arms out to the sides and up until your hands meet above your head.\nKeeping your arms overhead, lean your upper body to the right as your hips shift slightly to the left.\nHold for a few slow breaths, then return to centre.\nRepeat on the left side, then lower your arms.",
+                'video_url' => '/videos/overhead_side_bend.mp4',
+            ],
+            [
+                'title' => 'Standing Hamstring Reach',
+                'target_area' => BodyArea::Hamstrings,
+                'difficulty' => Difficulty::Intermediate,
+                'description' => 'Lengthens the back of the thighs from a standing position by hinging forward at the hips.',
+                'instructions' => "Stand side-on to your camera with your feet hip-width apart.\nKeep your knees straight but not locked.\nHinge forward from the hips and let your arms hang toward your shins.\nHold for a few slow breaths without bouncing.\nRoll back up slowly to standing.",
+                'video_url' => '/videos/standing_hamstring_reach.mp4',
             ],
         ];
     }

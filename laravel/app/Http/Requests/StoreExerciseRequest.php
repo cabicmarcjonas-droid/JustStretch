@@ -52,7 +52,19 @@ class StoreExerciseRequest extends FormRequest
             'benefits' => ['required', 'array', 'min:1', 'max:5'],
             'benefits.*' => ['required', 'string', 'max:80'],
             'precautions' => ['nullable', 'string', 'max:300'],
-            'video_url' => ['nullable', 'url', 'max:255'],
+            'video_url' => [
+                'nullable',
+                'string',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $isUrl = filter_var($value, FILTER_VALIDATE_URL) !== false;
+                    $isLocalPath = (bool) preg_match('#^/[A-Za-z0-9_\-./]+$#', (string) $value);
+
+                    if (! $isUrl && ! $isLocalPath) {
+                        $fail('The video URL must be a full link or a path like /videos/stretch.mp4.');
+                    }
+                },
+            ],
         ];
     }
 

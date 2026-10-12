@@ -90,7 +90,7 @@
 
     <div>
         <x-input-label for="video_url" value="Demo video URL (optional)" />
-        <x-text-input id="video_url" name="video_url" type="url" maxlength="255" class="mt-1 block w-full" :value="old('video_url', $exercise->video_url)" placeholder="https://…" />
+        <x-text-input id="video_url" name="video_url" type="text" maxlength="255" class="mt-1 block w-full" :value="old('video_url', $exercise->video_url)" placeholder="https://… or /videos/stretch.mp4" />
         <x-input-error :messages="$errors->get('video_url')" class="mt-2" />
     </div>
 </div>
