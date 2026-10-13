@@ -119,7 +119,7 @@
         </div>
  
         {{-- Score form: revealed by the session-ended event fired from pose-tracker.js --}}
-        <section x-data="{ open: @js($errors->any()), score: {{ (int) old('score', 70) }}, seconds: @js(old('duration_seconds')), auto: false, summary: null }"
+        <section x-data="{ open: @js($errors->any()), score: @js(old('score') !== null ? (int) old('score') : null), seconds: @js(old('duration_seconds')), auto: false, summary: null }"
                  x-on:session-ended.window="seconds = $event.detail.seconds; summary = $event.detail.summary ?? null; if ($event.detail.score != null) { score = $event.detail.score; auto = true }; open = true; $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'start' }))"
                  x-show="open"
                  x-cloak
