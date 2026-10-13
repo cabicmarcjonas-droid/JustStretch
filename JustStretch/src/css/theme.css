@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/*
+  Design system — "Field Notes / Green & White" direction.
+  Green + white palette per user request. Clean white paper, moss green accent.
+  Reference: physio intake charts, exercise worksheets, measurement logs.
+  No gradients, no glass, no glow. Structure comes from rules and grids,
+  not shadows.
+
+  Type: Archivo (variable, wght 100-900 + wdth 62-125) carries all headings,
+  body copy and UI labels. IBM Plex Mono is deliberately rationed to
+  measurement-sheet data only — indices, counts, durations, category tags and
+  user identifiers. Pair a heavy display heading with the condensed width axis
+  (font-stretch-extra-condensed) for worksheet-column density; keep the
+  uppercase + wide tracking on labels, that is the field-notes tell.
+*/
+@theme {
+  --color-paper: #ffffff;
+  --color-panel: #f4f7f4;
+  --color-ink: #1c1a15;
+  --color-muted: #5f6b5f;
+  --color-line: #d6ddd6;
+  --color-accent: #2e7d32;
+  --color-accent-ink: #ffffff;
+  --color-moss: #3f5442;
+  --color-white: #ffffff;
+
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-body: "Archivo", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
+}
+
+html {
+  color-scheme: light dark;
+  scroll-behavior: smooth;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="dark"] {
+  --color-paper: #121412;
+  --color-panel: #1e241e;
+  --color-ink: #f0f4f0;
+  --color-muted: #a3b0a3;
+  --color-line: #2a342a;
+  --color-accent: #4caf50;
+  --color-accent-ink: #0a130a;
+  --color-moss: #81c784;
+  --color-white: #121412;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition: none !important;
+  }
+}
+
+/* Typography: prevent widows on headings */
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+/* Tabular numbers for counts/comparisons */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Anchor offset for sticky headers */
+[id] {
+  scroll-margin-top: 5rem;
+}
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* Safe areas for notches */
+.safe-padded {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* Touch */
+button, a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(46, 125, 50, 0.15);
+}

@@ -1,0 +1,152 @@
+@reference "./theme.css";
+
+.main-page {
+  @apply bg-paper text-ink antialiased min-h-screen;
+}
+
+.eyebrow {
+  @apply block font-body text-xs font-medium uppercase tracking-[0.14em] text-accent;
+}
+
+/* --- Navbar --- */
+.main-navbar {
+  @apply sticky top-0 z-50 bg-paper border-b border-line;
+}
+
+.main-navbar .navbar-inner {
+  @apply max-w-5xl mx-auto flex items-center justify-between px-6 py-4;
+}
+
+.main-navbar .logo {
+  @apply font-display text-lg font-extrabold tracking-[-0.01em] text-ink uppercase;
+}
+
+.main-navbar ul {
+  @apply flex gap-7 font-body text-xs font-medium uppercase tracking-[0.06em] text-muted;
+}
+
+.main-navbar a {
+  @apply hover:text-accent focus-visible:outline-none focus-visible:text-accent focus-visible:ring-2 focus-visible:ring-accent/30 transition-colors;
+}
+
+/* --- Dashboard Hero --- */
+.main-hero {
+  @apply max-w-3xl mx-auto px-6 pt-16 pb-14 border-b border-line;
+}
+
+.main-hero .eyebrow {
+  @apply mb-4;
+}
+
+.main-hero h1 {
+  @apply font-display font-stretch-extra-condensed text-5xl font-extrabold tracking-[-0.01em] text-ink mb-3 text-balance leading-[1.0];
+}
+
+.main-hero p {
+  @apply text-lg text-muted;
+}
+
+.main-cta {
+  @apply inline-flex items-center gap-2 mt-8 bg-ink text-accent-ink font-body text-sm font-medium
+         uppercase tracking-[0.06em] px-6 py-3 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 transition-colors;
+}
+
+/* --- Workouts --- */
+.workouts-section {
+  @apply max-w-5xl mx-auto px-6 py-16 border-b border-line;
+}
+
+.section-label {
+  @apply flex items-baseline justify-between mb-8;
+}
+
+.section-label .count {
+  @apply font-mono text-xs uppercase tracking-widest text-muted;
+}
+
+.card-container {
+  @apply grid sm:grid-cols-3 border-t border-l border-line;
+}
+
+.card {
+  @apply relative block border-r border-b border-line p-6 bg-paper
+         hover:bg-ink hover:text-accent-ink focus-visible:outline-none focus-visible:bg-ink focus-visible:text-accent-ink focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset transition-colors min-w-0;
+}
+
+.card-index {
+  @apply block font-mono text-xs text-muted mb-6;
+}
+
+.card:hover .card-index {
+  @apply text-accent-ink;
+}
+
+.card h3 {
+  @apply font-display text-lg font-semibold mb-1 break-words;
+}
+
+.card p {
+  @apply font-mono text-xs uppercase tracking-widest text-accent truncate;
+}
+
+.card:hover p {
+  @apply text-accent-ink;
+}
+
+/* --- Streak --- */
+.streak-section {
+  @apply max-w-5xl mx-auto px-6 py-16 border-b border-line;
+}
+
+.streak-number {
+  @apply font-display font-stretch-extra-condensed text-8xl font-extrabold tracking-[-0.015em] text-accent mt-3 leading-none;
+}
+
+.streak-number span {
+  @apply font-body text-base font-medium uppercase tracking-[0.06em] text-muted ml-3;
+}
+
+/* --- Benefits --- */
+.benefits-section {
+  @apply max-w-3xl mx-auto px-6 py-16 border-b border-line;
+}
+
+.benefits-section h2 {
+  @apply font-display text-3xl font-bold tracking-[-0.02em] text-ink mt-3 mb-8;
+}
+
+.benefits-section ul {
+  @apply border-t border-line;
+}
+
+.benefits-section li {
+  @apply flex items-center gap-4 border-b border-line py-4 text-ink font-medium;
+}
+
+.benefits-section li span {
+  @apply font-mono text-xs text-muted;
+}
+
+/* --- Footer --- */
+.main-footer {
+  @apply py-8 text-center;
+}
+
+.main-footer p {
+  @apply text-muted font-body text-xs font-medium uppercase tracking-[0.06em];
+}
+
+/* Sticky header offset + safe area */
+.main-page .navbar-inner,
+.main-page .main-hero,
+.main-page .workouts-section,
+.main-page .streak-section {
+  padding-left: max(1.5rem, env(safe-area-inset-left));
+  padding-right: max(1.5rem, env(safe-area-inset-right));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .main-cta, .main-navbar a {
+    transition: none !important;
+  }
+}

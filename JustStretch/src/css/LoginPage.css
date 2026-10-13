@@ -1,0 +1,112 @@
+@reference "./theme.css";
+
+.login-page {
+  @apply fixed inset-0 flex items-center justify-center px-4 bg-paper antialiased;
+}
+
+.login-card {
+  @apply relative w-full max-w-3xl h-[520px] max-h-[90vh] bg-white overflow-hidden border border-line;
+}
+
+/* --- Sliding ink panel --- */
+.card-bg {
+  @apply absolute top-0 left-0 w-1/2 h-full bg-ink transition-transform duration-500 ease-in-out z-10;
+}
+
+.card-bg.login {
+  @apply translate-x-full;
+}
+
+.form {
+  @apply absolute top-0 w-1/2 h-full flex flex-col items-center justify-center gap-4 px-10 opacity-0 pointer-events-none transition-opacity duration-500;
+}
+
+.form.login {
+  @apply left-0;
+}
+
+.form.register {
+  @apply left-1/2;
+}
+
+.form.active {
+  @apply opacity-100 pointer-events-auto;
+}
+
+.form h2 {
+  @apply font-display font-stretch-extra-condensed text-2xl font-black tracking-[-0.01em] text-ink mb-1;
+}
+
+.form p {
+  @apply font-body text-xs font-medium uppercase tracking-[0.06em] text-muted;
+}
+
+.form form {
+  @apply w-full flex flex-col gap-3 mt-4;
+}
+
+.form input {
+  @apply border border-line bg-paper px-4 py-3 text-sm text-ink
+         focus-visible:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-0 transition-colors;
+}
+
+.form button[type="submit"] {
+  @apply mt-2 bg-ink text-accent-ink font-body text-xs font-medium uppercase tracking-[0.06em] py-3
+         hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 transition-colors;
+}
+
+.form a,
+.form .link-btn {
+  @apply self-center font-body text-xs text-muted hover:text-accent focus-visible:outline-none focus-visible:text-accent focus-visible:ring-2 focus-visible:ring-accent/30 transition-colors;
+}
+
+/* --- Hero panel (the ink side) --- */
+.hero {
+  @apply absolute top-0 w-1/2 h-full flex flex-col items-center justify-center text-center gap-4 px-10 opacity-0 pointer-events-none z-20 text-accent-ink transition-opacity duration-500;
+}
+
+.hero.register {
+  @apply left-0;
+}
+
+.hero.login {
+  @apply left-1/2;
+}
+
+.hero.active {
+  @apply opacity-100 pointer-events-auto;
+}
+
+.hero h2 {
+  @apply font-display font-stretch-extra-condensed text-2xl font-black tracking-[-0.01em];
+}
+
+.hero p {
+  @apply font-body text-xs font-medium text-accent-ink/70 max-w-[220px] leading-relaxed uppercase tracking-[0.06em];
+}
+
+.hero button {
+  @apply mt-4 font-body text-xs font-medium uppercase tracking-[0.06em] border border-accent-ink px-7 py-3
+         hover:bg-accent-ink hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-ink transition-colors;
+}
+
+/* a11y: sr-only for hidden labels */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .card-bg, .form, .hero {
+    transition: none !important;
+    transform: none !important;
+  }
+}
