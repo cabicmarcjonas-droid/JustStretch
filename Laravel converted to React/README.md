@@ -8,7 +8,7 @@ This folder is the React + Node conversion of the Laravel build in `../laravel/`
 
 | Software | Version used |
 |---|---|
-| Node.js | 26 (22 or newer should work) |
+| Node.js | 26 (22.9 or newer is required) |
 | npm | 11 |
 | Browser | Chrome, Edge or Firefox with a webcam |
 | MongoDB | Optional. Without it the API starts an in-memory database (see below) |
@@ -48,6 +48,7 @@ The API reads `MONGODB_URI` from `server/.env` (copy `server/.env.example` to `s
 - Use PowerShell and run commands one per line (PowerShell 5.1 has no `&&`).
 - To create the env file: `copy server\.env.example server\.env`.
 - Windows does not care about file-name case, but the build fails on macOS/Linux if an import has the wrong case. Match the case of the file exactly.
+- The first run without MongoDB downloads a Windows MongoDB binary; it may need the Visual C++ Redistributable, and antivirus can slow or block the download.
 - If `bcrypt` fails to load after `npm install`, run `npm rebuild bcrypt` inside `server/`.
 
 ## Demo account
