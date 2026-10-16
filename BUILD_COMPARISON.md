@@ -162,3 +162,9 @@ All three React folders arrived in one commit ("Finished design update", 17 Aug 
 - **Cleanup.** Whether to delete `React/` and `JustStretch/` once one build is chosen.
 
 Setup instructions for the Laravel build are in [`laravel/README.md`](laravel/README.md).
+
+---
+
+## Integration status
+
+`JustStretch1/` is now the group's main app: the JustStretch1 interface on top of the React + Node (Express, MongoDB) conversion of the Laravel build. Setup and the demo account are in [`JustStretch1/README.md`](JustStretch1/README.md). The conversion on its own is kept in `Laravel converted to React/`. Items that were not converted, and the differences from the Laravel build, are listed in [`JustStretch1/PARKED.md`](JustStretch1/PARKED.md). The comparison above is left as it was.

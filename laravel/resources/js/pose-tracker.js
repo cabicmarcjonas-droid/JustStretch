@@ -7,7 +7,15 @@
  * time is broadcast as a `session-ended` window event for the score form.
  */
 import { DrawingUtils, FilesetResolver, HandLandmarker, PoseLandmarker } from '@mediapipe/tasks-vision';
-
+import {
+    SessionScorer,
+    compareToReference,
+    computeUserAngles,
+    jointLandmarkIndex,
+    loadReference,
+    poseUrlFromVideo,
+} from './poseComparison.js';
+ 
 // Must match the exact version in package.json so the JS and wasm agree.
 const MEDIAPIPE_VERSION = '1.0.1';
 const WASM_PATH = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
@@ -15,21 +23,26 @@ const MODEL_URL =
     'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
 const HAND_MODEL_URL =
     'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
-
+ 
 // Pose landmarks 17–22 are the pose model's rough pinky/index/thumb points.
 // When the hand model sees a hand, its 21-point skeleton replaces them.
 const POSE_HAND_POINTS = new Set([17, 18, 19, 20, 21, 22]);
-
+ 
 const ACCENT = '#3f6b52';
 const MUTED_LINE = 'rgba(228, 228, 223, 0.85)';
 const MUTED_POINT = 'rgba(107, 111, 105, 0.9)';
+const OFF_COLOR = '#dc2626';
+const NEUTRAL_DOT = '#d4d4d0';
 
+// A session needs at least this many judged frames before a camera score is suggested.
+const MIN_JUDGED_FRAMES = 30;
+ 
 const stage = document.getElementById('pose-stage');
-
+ 
 if (stage) {
     initPoseTracker(stage);
 }
-
+ 
 function initPoseTracker(stage) {
     const video = stage.querySelector('#pose-video');
     const canvas = stage.querySelector('#pose-canvas');
@@ -38,7 +51,13 @@ function initPoseTracker(stage) {
     const stopButton = document.getElementById('pose-stop');
     const timerEl = document.getElementById('pose-timer');
     const statusEl = document.getElementById('pose-status');
-
+    const livePanel = document.getElementById('pose-live');
+    const liveScoreEl = document.getElementById('pose-live-score');
+    const liveFramesEl = document.getElementById('pose-live-frames');
+    const liveNoteEl = document.getElementById('pose-live-note');
+    const liveTable = document.getElementById('pose-live-table');
+    const liveRowsEl = document.getElementById('pose-live-rows');
+ 
     const ctx = canvas.getContext('2d');
     const drawingUtils = new DrawingUtils(ctx);
     const highlighted = new Set(JSON.parse(stage.dataset.landmarks || '[]'));
@@ -49,7 +68,7 @@ function initPoseTracker(stage) {
     const bodyOnlyConnections = PoseLandmarker.POSE_CONNECTIONS.filter(
         ({ start, end }) => !POSE_HAND_POINTS.has(start) && !POSE_HAND_POINTS.has(end),
     );
-
+ 
     let landmarker = null;
     let handLandmarker = null;
     let stream = null;
@@ -57,25 +76,143 @@ function initPoseTracker(stage) {
     let timerId = null;
     let startedAt = null;
     let lastVideoTime = -1;
-
+ 
+    // Blender reference pose for this exercise. Stays null when there is none,
+    // in which case the page behaves exactly as before (manual slider only).
+    let reference = null;
+    let scorer = new SessionScorer();
+    let latest = null;
+    let smoothed = {};
+ 
     const setStatus = (message, tone = 'muted') => {
         statusEl.textContent = message;
         statusEl.dataset.tone = tone;
     };
-
+ 
     const formatElapsed = (seconds) => {
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
         return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
-
+ 
     const elapsedSeconds = () => (startedAt ? Math.round((performance.now() - startedAt) / 1000) : 0);
-
+ 
     const setRunning = (running) => {
         startButton.disabled = running || !landmarker;
         stopButton.disabled = !running;
         overlay.classList.toggle('hidden', running);
         overlay.classList.toggle('flex', !running);
+        livePanel?.classList.toggle('hidden', !running);
+    };
+ 
+    // ---- Live results panel -------------------------------------------------
+    // Updated at most ~5 times a second so the DOM work never competes with pose inference.
+    const LIVE_PANEL_INTERVAL_MS = 100;
+    let lastPanelUpdate = 0;
+    let liveRowsFor = null; // the reference the table rows were built for
+    let liveRows = {}; // joint name -> { user, ref, error, dot } cells
+
+    const jointLabel = (name) => {
+        const text = name.replace(/_/g, ' ');
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    };
+
+    const cameraHint = (camera) => {
+        if (camera === 'Cam_Side') return 'This stretch is tracked from the side: stand sideways to the camera.';
+        if (camera === 'Cam_Front') return 'This stretch is tracked from the front: face the camera.';
+        return '';
+    };
+
+    const buildLiveRows = () => {
+        liveRowsEl.replaceChildren();
+        liveRows = {};
+
+        for (const name of reference.targetJoints) {
+            const tr = document.createElement('tr');
+            const cell = (className) => {
+                const td = document.createElement('td');
+                td.className = className;
+                tr.appendChild(td);
+                return td;
+            };
+
+            const label = cell('py-1.5 pr-2');
+            label.textContent = jointLabel(name);
+            const user = cell('py-1.5 px-2 text-right tabular-nums');
+            const ref = cell('py-1.5 px-2 text-right tabular-nums');
+            const error = cell('py-1.5 px-2 text-right tabular-nums font-medium');
+            const dotCell = cell('py-1.5 pl-2 text-right');
+            const dot = document.createElement('span');
+            dot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:9999px;background:${NEUTRAL_DOT}`;
+            dotCell.appendChild(dot);
+
+            liveRows[name] = { user, ref, error, dot };
+            liveRowsEl.appendChild(tr);
+        }
+    };
+
+    const setLiveRow = (name, result) => {
+        const row = liveRows[name];
+        if (!row) {
+            return;
+        }
+        if (!result) {
+            row.user.textContent = '—';
+            row.ref.textContent = '—';
+            row.error.textContent = '—';
+            row.error.style.color = '';
+            row.dot.style.background = NEUTRAL_DOT;
+            return;
+        }
+        const color = result.ok ? ACCENT : OFF_COLOR;
+        row.user.textContent = `${Math.round(result.user)}°`;
+        row.ref.textContent = `${Math.round(result.ref)}°`;
+        row.error.textContent = `${Math.round(result.errorDeg)}°`;
+        row.error.style.color = color;
+        row.dot.style.background = color;
+    };
+
+    const resetLivePanel = () => {
+        lastPanelUpdate = 0;
+        liveRowsFor = null;
+        liveRowsEl?.replaceChildren();
+        if (liveScoreEl) liveScoreEl.textContent = '—';
+        if (liveFramesEl) liveFramesEl.textContent = '';
+    };
+
+    const updateLivePanel = (now) => {
+        if (!livePanel || now - lastPanelUpdate < LIVE_PANEL_INTERVAL_MS) {
+            return;
+        }
+        lastPanelUpdate = now;
+
+        if (!reference) {
+            liveTable.classList.add('hidden');
+            liveScoreEl.textContent = '—';
+            liveFramesEl.textContent = '';
+            liveNoteEl.textContent =
+                'This exercise has no reference pose yet, so there is nothing to score against. Tracking only.';
+            return;
+        }
+
+        if (liveRowsFor !== reference) {
+            buildLiveRows();
+            liveRowsFor = reference;
+        }
+        liveTable.classList.remove('hidden');
+
+        const { score, judgedFrames, goodFrames } = scorer.summary();
+        liveScoreEl.textContent = score === null ? '—' : String(score);
+        liveFramesEl.textContent = judgedFrames
+            ? `${goodFrames} of ${judgedFrames} frames in range`
+            : 'Waiting for a frame that can be judged…';
+        liveNoteEl.textContent = [cameraHint(reference.camera), 'Green joints are within the margin of error.']
+            .filter(Boolean)
+            .join(' ');
+
+        for (const name of reference.targetJoints) {
+            setLiveRow(name, latest?.perJoint[name] ?? null);
+        }
     };
 
     // 1. Load the models as soon as the page opens (camera is NOT requested yet).
@@ -88,16 +225,16 @@ function initPoseTracker(stage) {
             return create('CPU');
         }
     };
-
+ 
     const loadModel = async () => {
         setStatus('Loading pose and hand models…');
         startButton.disabled = true;
-
+ 
         const vision = await FilesetResolver.forVisionTasks(WASM_PATH).catch((error) => {
             console.error(error);
             return null;
         });
-
+ 
         const [pose, hands] = await Promise.allSettled([
             vision &&
                 withGpuFallback((delegate) =>
@@ -116,10 +253,10 @@ function initPoseTracker(stage) {
                     }),
                 ),
         ]);
-
+ 
         landmarker = pose.status === 'fulfilled' ? pose.value : null;
         handLandmarker = hands.status === 'fulfilled' ? hands.value : null;
-
+ 
         if (!landmarker) {
             console.error(pose.reason);
             setStatus(
@@ -128,7 +265,7 @@ function initPoseTracker(stage) {
             );
             return;
         }
-
+ 
         if (!handLandmarker) {
             // Finger tracking is a bonus; the session still works with body tracking alone.
             console.warn('Hand model unavailable; tracking body only.', hands.reason);
@@ -136,10 +273,10 @@ function initPoseTracker(stage) {
         } else {
             setStatus('Pose and hand models ready. Press Start when you are in frame.');
         }
-
+ 
         startButton.disabled = false;
     };
-
+ 
     const cameraErrorMessage = (error) => {
         switch (error?.name) {
             case 'NotAllowedError':
@@ -158,35 +295,54 @@ function initPoseTracker(stage) {
                 return `Could not start the camera${error?.message ? `: ${error.message}` : '.'}`;
         }
     };
-
+ 
     // 3–5. Detection loop: draw the frame, the full skeleton, then the target joints.
     const renderFrame = () => {
         frameId = requestAnimationFrame(renderFrame);
-
+ 
         if (video.readyState < 2 || video.currentTime === lastVideoTime) {
             return;
         }
         lastVideoTime = video.currentTime;
-
+ 
         const timestamp = performance.now();
         const pose = landmarker.detectForVideo(video, timestamp).landmarks?.[0];
         const hands = handLandmarker?.detectForVideo(video, timestamp).landmarks ?? [];
         const handsFound = hands.length > 0;
-
+ 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        if (!pose?.length && !handsFound) {
-            setStatus('No person detected. Step back so your upper body is in view.', 'warn');
-            return;
+ 
+        // Compare the live pose with the Blender reference (only when one exists).
+        latest = null;
+if (reference && pose?.length) {
+    const raw = computeUserAngles(pose, video.videoWidth, video.videoHeight, reference);
+    const angles = {};
+    for (const [name, value] of Object.entries(raw)) {
+        if (value == null) { angles[name] = null; delete smoothed[name]; continue; }
+        smoothed[name] = smoothed[name] == null ? value : smoothed[name] + 0.4 * (value - smoothed[name]);
+        angles[name] = smoothed[name];
+    }
+    latest = compareToReference(angles, reference, (performance.now() - startedAt) / 1000);
+    scorer.add(latest);
+}
+ 
+        updateLivePanel(performance.now());
+
+        if (latest) {
+            setStatus(
+                latest.good ? 'Good form. Keep it up.' : 'Adjust your form: red joints are off the reference.',
+                latest.good ? 'ok' : 'warn',
+            );
+        } else {
+            setStatus('Tracking. Green joints are the ones this stretch targets.', 'ok');
         }
-
-        setStatus('Tracking. Green joints are the ones this stretch targets.', 'ok');
-
+ 
         if (pose?.length) {
             // Skip the pose model's coarse hand points when real finger tracking is available.
             const showPoint = (index) => !(handsFound && POSE_HAND_POINTS.has(index));
-
+ 
             drawingUtils.drawConnectors(pose, handsFound ? bodyOnlyConnections : PoseLandmarker.POSE_CONNECTIONS, {
                 color: MUTED_LINE,
                 lineWidth: 2,
@@ -195,7 +351,7 @@ function initPoseTracker(stage) {
                 pose.filter((_, index) => showPoint(index)),
                 { color: MUTED_POINT, fillColor: MUTED_POINT, radius: 2, lineWidth: 1 },
             );
-
+ 
             drawingUtils.drawConnectors(
                 pose,
                 highlightedConnections.filter(({ start, end }) => showPoint(start) && showPoint(end)),
@@ -205,8 +361,20 @@ function initPoseTracker(stage) {
                 pose.filter((_, index) => highlighted.has(index) && showPoint(index)),
                 { color: '#ffffff', fillColor: ACCENT, radius: 7, lineWidth: 2 },
             );
+ 
+            // Red dot on any joint that is outside the margin of error.
+            if (latest) {
+                const offJoints = Object.entries(latest.perJoint)
+                    .filter(([, result]) => !result.ok)
+                    .map(([name]) => jointLandmarkIndex(reference, name))
+                    .filter((index) => index !== null && showPoint(index));
+                drawingUtils.drawLandmarks(
+                    offJoints.map((index) => pose[index]),
+                    { color: '#ffffff', fillColor: '#dc2626', radius: 8, lineWidth: 2 },
+                );
+            }
         }
-
+ 
         for (const hand of hands) {
             drawingUtils.drawConnectors(hand, HandLandmarker.HAND_CONNECTIONS, {
                 color: highlightHands ? ACCENT : MUTED_LINE,
@@ -220,27 +388,27 @@ function initPoseTracker(stage) {
             );
         }
     };
-
+ 
     const stopTracks = () => {
         stream?.getTracks().forEach((track) => track.stop());
         stream = null;
         video.srcObject = null;
     };
-
+ 
     // 2. Camera only starts when the user asks for it.
     const start = async () => {
         if (!landmarker) {
             return;
         }
-
+ 
         if (!navigator.mediaDevices?.getUserMedia) {
             setStatus(cameraErrorMessage({ name: 'SecurityError' }), 'error');
             return;
         }
-
+ 
         startButton.disabled = true;
         setStatus('Requesting camera…');
-
+ 
         try {
             stream = await navigator.mediaDevices.getUserMedia({
                 video: { width: 640, height: 480 },
@@ -252,50 +420,93 @@ function initPoseTracker(stage) {
             startButton.disabled = false;
             return;
         }
-
+ 
         video.srcObject = stream;
         await video.play();
-
+ 
         setStatus('Camera ready.', 'ok');
         lastVideoTime = -1;
         startedAt = performance.now();
+        scorer = new SessionScorer();
+        latest = null;
+        smoothed = {};
+        resetLivePanel();
         timerEl.textContent = formatElapsed(0);
         timerId = setInterval(() => {
             timerEl.textContent = formatElapsed(elapsedSeconds());
         }, 250);
-
+ 
         setRunning(true);
         renderFrame();
     };
-
+ 
     // 6. Stop: end the loop, release the camera, hand the duration to the score form.
     const stop = () => {
         cancelAnimationFrame(frameId);
         clearInterval(timerId);
         frameId = null;
         timerId = null;
-
+ 
         const seconds = elapsedSeconds();
         startedAt = null;
         stopTracks();
-
+ 
         timerEl.textContent = formatElapsed(seconds);
         setRunning(false);
         startButton.textContent = 'Restart';
         setStatus('Session stopped. Rate your form below to save it.');
-
-        window.dispatchEvent(new CustomEvent('session-ended', { detail: { seconds } }));
+ 
+        // Suggested score (0-100) from the pose comparison. null when this exercise has no
+        // reference or too few frames were judged (e.g. Start then Stop right away).
+        const summary = scorer.summary();
+        const { score, judgedFrames } = summary;
+        const suggested = reference && judgedFrames >= MIN_JUDGED_FRAMES ? score : null;
+ 
+        // Everything the results card needs. `joints` only lists joints that were judged at least once.
+        window.dispatchEvent(
+            new CustomEvent('session-ended', {
+                detail: {
+                    seconds,
+                    score: suggested,
+                    summary: {
+                        hasReference: Boolean(reference),
+                        camera: reference?.camera ?? null,
+                        minJudgedFrames: MIN_JUDGED_FRAMES,
+                        judgedFrames: summary.judgedFrames,
+                        goodFrames: summary.goodFrames,
+                        skippedFrames: summary.skippedFrames,
+                        joints: reference
+                            ? reference.targetJoints
+                                  .filter((name) => name in summary.meanErrorDeg)
+                                  .map((name) => ({
+                                      name,
+                                      meanErrorDeg: summary.meanErrorDeg[name],
+                                      inRangePct: summary.inRangePct[name],
+                                  }))
+                            : [],
+                    },
+                },
+            }),
+        );
     };
-
+ 
     startButton.addEventListener('click', start);
     stopButton.addEventListener('click', stop);
-
+ 
     // 7. Never leave the camera running after navigating away.
     window.addEventListener('pagehide', () => {
         cancelAnimationFrame(frameId);
         clearInterval(timerId);
         stopTracks();
     });
-
+ 
     loadModel();
+ 
+    // Load the Blender reference for this exercise, if it has one (found via its video_url).
+    const poseUrl = poseUrlFromVideo(stage.dataset.videoUrl);
+    if (poseUrl) {
+        loadReference(poseUrl).then((loaded) => {
+            reference = loaded;
+        });
+    }
 }
