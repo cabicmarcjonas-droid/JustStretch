@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import Icon from '../components/Icon.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import AppLayout from '../layouts/AppLayout.jsx'
 import { api } from '../lib/api.js'
 import { useFetch } from '../lib/hooks.js'
+import { pageTitle } from '../lib/ui.js'
 import ExerciseForm from './ExerciseForm.jsx'
 import Forbidden from './Forbidden.jsx'
 import NotFound from './NotFound.jsx'
+
+const body = 'mx-auto max-w-3xl px-4 pb-16 pt-6 sm:px-8 md:px-0'
 
 export default function ExerciseEdit() {
   const { id } = useParams()
@@ -24,8 +28,8 @@ export default function ExerciseEdit() {
   if (!data) {
     return (
       <AppLayout title="Edit exercise">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className={`text-sm ${error ? 'text-red-700' : 'text-muted'}`} role={error ? 'alert' : 'status'}>
+        <div className={body}>
+          <p className={`text-sm ${error ? 'text-red-700' : 'text-slate-500'}`} role={error ? 'alert' : 'status'}>
             {loading ? 'Loading exercise…' : `Could not load this exercise: ${error?.message}`}
           </p>
         </div>
@@ -36,12 +40,16 @@ export default function ExerciseEdit() {
   const { exercise } = data
 
   const header = (
-    <>
-      <Link to={`/exercises/${exercise.id}`} className="text-sm text-muted hover:text-ink">
-        &larr; Back to exercise
+    <div className="mx-auto max-w-3xl">
+      <Link
+        to={`/exercises/${exercise.id}`}
+        className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 transition-colors hover:text-accent"
+      >
+        <Icon name="arrowLeft" className="h-4 w-4" />
+        Back to exercise
       </Link>
-      <h1 className="mt-3 text-3xl font-black italic tracking-tighter">Edit “{exercise.title}”</h1>
-    </>
+      <h1 className={`mt-4 ${pageTitle}`}>Edit “{exercise.title}”</h1>
+    </div>
   )
 
   const save = async (values) => {
@@ -51,7 +59,7 @@ export default function ExerciseEdit() {
 
   return (
     <AppLayout title={`Edit ${exercise.title}`} header={header}>
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={body}>
         <ExerciseForm
           exercise={exercise}
           submitLabel="Save changes"
