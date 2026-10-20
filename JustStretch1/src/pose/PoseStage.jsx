@@ -82,36 +82,6 @@ export default function PoseStage({ videoUrl, targetArea, reference, stopButtonR
             </p>
           </div>
 
-          {/* Live results: filled in by poseTracker.js while a session is running */}
-          <div
-            ref={livePanel}
-            className="absolute bottom-3 right-3 z-10 hidden max-h-[calc(100%-1.5rem)] w-64 overflow-y-auto rounded-2xl bg-white/95 p-3.5 text-ink shadow-lg backdrop-blur-sm"
-          >
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Live form</h2>
-                <p ref={liveFrames} className="text-[11px] text-slate-500" />
-              </div>
-              <span ref={liveScore} className="text-3xl font-black italic tracking-tighter tabular-nums text-accent">
-                —
-              </span>
-            </div>
-            <p ref={liveNote} className="mt-1.5 text-[11px] leading-snug text-slate-500" />
-            <table ref={liveTable} className="mt-2 w-full text-xs">
-              <thead className="text-[10px] uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th className="py-1 text-left font-bold">Joint</th>
-                  <th className="px-1 py-1 text-right font-bold">You</th>
-                  <th className="px-1 py-1 text-right font-bold">Target</th>
-                  <th className="px-1 py-1 text-right font-bold">Off</th>
-                  <th className="py-1 pl-1">
-                    <span className="sr-only">Status</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody ref={liveRows} className="divide-y divide-slate-200" />
-            </table>
-          </div>
         </div>
       </div>
 
@@ -140,6 +110,38 @@ export default function PoseStage({ videoUrl, targetArea, reference, stopButtonR
             00:00
           </span>
         </span>
+      </div>
+
+      {/* Live results: filled in by poseTracker.js while a session is running. It sits below the
+          controls rather than over the camera, so it never covers the user. The tracker only
+          toggles `hidden` on the outer element, so the grid lives on the inner one. */}
+      <div ref={livePanel} className="hidden rounded-2xl border border-slate-300 bg-white p-5 shadow-card">
+        <div className="grid gap-5 md:grid-cols-[220px_1fr]">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Live form</h2>
+            <span ref={liveScore} className="mt-1 block text-5xl font-black italic tracking-tighter tabular-nums text-accent">
+              —
+            </span>
+            <p ref={liveFrames} className="mt-1 text-sm text-slate-500" />
+            <p ref={liveNote} className="mt-2 text-[13px] leading-snug text-slate-500" />
+          </div>
+          <div className="min-w-0 overflow-x-auto">
+            <table ref={liveTable} className="w-full text-sm">
+              <thead className="text-xs uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="py-1 text-left font-bold">Joint</th>
+                  <th className="px-2 py-1 text-right font-bold">You</th>
+                  <th className="px-2 py-1 text-right font-bold">Target</th>
+                  <th className="px-2 py-1 text-right font-bold">Off by</th>
+                  <th className="py-1 pl-2">
+                    <span className="sr-only">Status</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody ref={liveRows} className="divide-y divide-slate-200" />
+            </table>
+          </div>
+        </div>
       </div>
 
       <p className="flex items-start gap-2 text-xs text-slate-500">
