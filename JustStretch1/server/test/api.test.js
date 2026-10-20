@@ -135,11 +135,15 @@ describe('exercises', () => {
 
     const page1 = await user.get('/api/exercises')
     assert.equal(page1.body.data.length, 9)
-    assert.deepEqual(page1.body.meta, { page: 1, lastPage: 2, total: 11 })
+    assert.deepEqual(page1.body.meta, { page: 1, lastPage: 2, total: 11, areaCounts: { neck: 6, hips: 5 } })
     assert.equal((await user.get('/api/exercises?page=2')).body.data.length, 2)
 
     assert.equal((await user.get('/api/exercises?search=TWIST 1')).body.meta.total, 3) // 1, 10, 11
-    assert.equal((await user.get('/api/exercises?area=neck')).body.meta.total, 6)
+    const neck = (await user.get('/api/exercises?area=neck')).body.meta
+    assert.equal(neck.total, 6)
+    // Chip counts ignore the selected area, so the other chips still show their totals.
+    assert.deepEqual(neck.areaCounts, { neck: 6, hips: 5 })
+    assert.deepEqual((await user.get('/api/exercises?search=TWIST 1')).body.meta.areaCounts, { neck: 2, hips: 1 })
     assert.equal((await user.get('/api/exercises?difficulty=advanced')).body.meta.total, 0)
   })
 })
@@ -164,6 +168,19 @@ describe('sessions', () => {
     assert.equal(list.body.meta.total, 1)
     assert.equal(list.body.data[0].exercise.title, 'Cascade me')
     assert.deepEqual(list.body.exercises, [{ id: exercise.id, title: 'Cascade me' }])
+    assert.equal(list.body.summary.count, 1)
+    assert.equal(list.body.summary.averageScore, 82)
+    assert.equal(list.body.summary.totalSeconds, 95)
+    assert.equal(list.body.summary.best.title, 'Cascade me')
+    assert.deepEqual(
+      list.body.history.map((h) => h.score),
+      [82],
+    )
+    // The exercise filter also narrows the summary.
+    assert.equal((await owner.get(`/api/sessions?exercise=${exercise.id}`)).body.summary.count, 1)
+
+    const detail = await owner.get(`/api/exercises/${exercise.id}`)
+    assert.deepEqual(detail.body.stats, { attempts: 1, best: 82, averageScore: 82 })
     assert.equal((await other.get('/api/sessions')).body.meta.total, 0)
 
     const sessionId = saved.body.session.id
@@ -186,8 +203,17 @@ describe('sessions', () => {
     assert.equal(body.totalSessions, 2)
     assert.equal(body.averageScore, 70)
     assert.equal(body.topArea, 'lower_back')
+    assert.equal(body.topAreaSessions, 2)
     assert.equal(body.recentSessions.length, 2)
     assert.ok(body.suggestions.length >= 1)
+    // Oldest first, for the chart.
+    assert.deepEqual(
+      body.scoreHistory.map((h) => h.score),
+      [80, 60],
+    )
+    assert.equal(body.previousAverageScore, null)
+    assert.equal(body.recentDays.length, 7)
+    assert.equal(body.recentDays[6].active, true)
   })
 })
 

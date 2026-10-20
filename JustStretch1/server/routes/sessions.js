@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import mongoose from 'mongoose'
 import { Exercise } from '../models/Exercise.js'
 import { StretchSession } from '../models/StretchSession.js'
 import { forbidden, isValidId, notFound } from '../middleware/errors.js'
@@ -8,6 +9,24 @@ const router = Router()
 router.use(requireAuth)
 
 const PER_PAGE = 15
+const DAY_MS = 24 * 60 * 60 * 1000
+const WINDOW_DAYS = 30
+
+// Count, average score and total time for sessions matching `match`.
+async function summarise(match) {
+  const [totals] = await StretchSession.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: null,
+        count: { $sum: 1 },
+        avg: { $avg: '$score' },
+        seconds: { $sum: { $ifNull: ['$durationSeconds', 0] } },
+      },
+    },
+  ])
+  return { count: totals?.count ?? 0, averageScore: totals ? Math.round(totals.avg) : null, totalSeconds: totals?.seconds ?? 0 }
+}
 
 router.get('/', async (req, res) => {
   const exerciseId = isValidId(req.query.exercise) ? String(req.query.exercise) : null
@@ -18,7 +37,7 @@ router.get('/', async (req, res) => {
 
   const total = await StretchSession.countDocuments(filter)
   const data = await StretchSession.find(filter)
-    .populate('exercise', 'title targetArea')
+    .populate('exercise', 'title targetArea videoUrl')
     .sort({ completedAt: -1, _id: -1 })
     .skip((page - 1) * PER_PAGE)
     .limit(PER_PAGE)
@@ -29,10 +48,35 @@ router.get('/', async (req, res) => {
     .select('title')
     .sort({ title: 1 })
 
+  // Last-30-days summary and score trend, for the cards and chart above the table.
+  // They follow the exercise filter, so picking an exercise shows its own numbers.
+  const now = Date.now()
+  const windowStart = new Date(now - WINDOW_DAYS * DAY_MS)
+  const previousStart = new Date(now - 2 * WINDOW_DAYS * DAY_MS)
+  // aggregate() does not cast strings to ObjectIds like find() does, so cast the filter here.
+  const base = { user: req.user._id, ...(exerciseId ? { exercise: new mongoose.Types.ObjectId(exerciseId) } : {}) }
+  const [current, previous, best, history] = await Promise.all([
+    summarise({ ...base, completedAt: { $gte: windowStart } }),
+    summarise({ ...base, completedAt: { $gte: previousStart, $lt: windowStart } }),
+    StretchSession.findOne({ ...base, completedAt: { $gte: windowStart } })
+      .sort({ score: -1, completedAt: -1 })
+      .populate('exercise', 'title'),
+    StretchSession.find({ ...base, completedAt: { $gte: windowStart } })
+      .sort({ completedAt: 1, _id: 1 })
+      .select('score completedAt'),
+  ])
+
   res.json({
     data,
     meta: { page, lastPage: Math.max(1, Math.ceil(total / PER_PAGE)), total },
     exercises: exercises.map((e) => ({ id: String(e._id), title: e.title })),
+    summary: {
+      days: WINDOW_DAYS,
+      ...current,
+      previousAverageScore: previous.averageScore,
+      best: best ? { score: best.score, title: best.exercise?.title ?? null, completedAt: best.completedAt } : null,
+    },
+    history: history.map((s) => ({ score: s.score, completedAt: s.completedAt })),
   })
 })
 
