@@ -4,7 +4,9 @@ import Flash from '../components/Flash.jsx'
 import Navbar from '../components/Navbar.jsx'
 import SiteFooter from '../components/SiteFooter.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { initials } from '../lib/format.js'
 import { usePageTitle } from '../lib/hooks.js'
+import { container } from '../lib/ui.js'
 
 const LINKS = [
   { to: '/dashboard', label: 'Dashboard', end: true },
@@ -13,7 +15,7 @@ const LINKS = [
 ]
 
 const menuItem =
-  'block w-full px-4 py-2.5 text-start text-sm font-bold text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 focus:outline-none focus:bg-emerald-50'
+  'block w-full px-4 py-2.5 text-start text-sm font-bold text-slate-600 hover:bg-accent-soft hover:text-accent focus:outline-none focus:bg-accent-soft'
 
 function UserMenu({ user, onLogout }) {
   const [open, setOpen] = useState(false)
@@ -39,10 +41,13 @@ function UserMenu({ user, onLogout }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition-colors hover:border-emerald-200 hover:text-emerald-600 focus:outline-none"
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1 ps-1 pe-3 text-sm font-bold text-slate-700 transition-colors hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        {user.name}
-        <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent">
+          {initials(user.name)}
+        </span>
+        {user.name.split(' ')[0]}
+        <svg className="h-4 w-4 fill-current text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" aria-hidden="true">
           <path
             fillRule="evenodd"
             d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
@@ -52,9 +57,17 @@ function UserMenu({ user, onLogout }) {
       </button>
 
       {open && (
-        <div className="absolute end-0 z-50 mt-2 w-48 origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-xl" role="menu" onClick={() => setOpen(false)}>
+        <div
+          className="absolute end-0 z-50 mt-2 w-52 origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-card"
+          role="menu"
+          onClick={() => setOpen(false)}
+        >
+          <div className="border-b border-slate-100 px-4 py-2.5">
+            <p className="truncate text-sm font-bold text-ink">{user.name}</p>
+            <p className="truncate text-xs text-slate-500">{user.email}</p>
+          </div>
           <Link to="/profile" className={menuItem} role="menuitem">
-            Profile
+            Account settings
           </Link>
           <button type="button" onClick={onLogout} className={menuItem} role="menuitem">
             Log Out
@@ -78,14 +91,18 @@ export default function AppLayout({ title, header, children }) {
   const mobileAccount = (
     <div className="mt-2 border-t border-slate-200 pt-3">
       <div className="px-3">
-        <div className="text-sm font-black text-slate-900">{user.name}</div>
+        <div className="text-sm font-black text-ink">{user.name}</div>
         <div className="text-xs font-medium text-slate-500">{user.email}</div>
       </div>
       <div className="mt-2 space-y-1">
-        <Link to="/profile" className="block rounded-lg px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-600">
-          Profile
+        <Link to="/profile" className="block rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-accent">
+          Account settings
         </Link>
-        <button type="button" onClick={handleLogout} className="block w-full rounded-lg px-3 py-2.5 text-start text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-600">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="block w-full rounded-xl px-3 py-2.5 text-start text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-accent"
+        >
           Log Out
         </button>
       </div>
@@ -96,17 +113,13 @@ export default function AppLayout({ title, header, children }) {
     <div className="flex min-h-screen flex-col">
       <Navbar home="/dashboard" links={LINKS} actions={<UserMenu user={user} onLogout={handleLogout} />} mobileActions={mobileAccount} />
 
-      {header && (
-        <header className="border-b border-slate-200 bg-white/70">
-          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">{header}</div>
-        </header>
-      )}
+      {header && <header className={`${container} pt-8 sm:pt-10`}>{header}</header>}
 
       <Flash />
 
       <main className="flex-1">{children}</main>
 
-      <SiteFooter>Just Stretch is a guide, not a diagnosis. Stop any stretch that causes sharp pain and consult a professional.</SiteFooter>
+      <SiteFooter>JustStretch is a guide, not a diagnosis. Stop any stretch that causes sharp pain.</SiteFooter>
     </div>
   )
 }
