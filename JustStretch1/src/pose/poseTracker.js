@@ -1,4 +1,5 @@
 import { DrawingUtils, FilesetResolver, HandLandmarker, PoseLandmarker } from '@mediapipe/tasks-vision'
+import { AudioCoach } from '../lib/audioCoach.js'
 import { emit } from '../lib/eventBus.js'
 import { PerfMonitor } from '../lib/perfMonitor.js'
 import {
@@ -22,11 +23,6 @@ const HAND_MODEL_URL =
 // When the hand model sees a hand, its 21-point skeleton replaces them.
 const POSE_HAND_POINTS = new Set([17, 18, 19, 20, 21, 22])
  
-// Same threshold computeUserAngles uses, so "not visible" means the same thing everywhere.
-const MIN_VISIBILITY = 0.6
-// About a third of a second at 30 FPS before the step-back message appears.
-const UNSEEN_FRAMES_BEFORE_PROMPT = 10
-
 const ACCENT = '#059669'
 const MUTED_LINE = 'rgba(228, 228, 223, 0.85)'
 const MUTED_POINT = 'rgba(107, 111, 105, 0.9)'
@@ -43,7 +39,6 @@ const LIVE_PANEL_INTERVAL_MS = 250
 // Per-frame budget from the paper: 33 ms per frame keeps 30 FPS.
 const FRAME_BUDGET_MS = 33
  
-
 // The hand model costs about as much as the pose model, and the finger skeleton is mostly
 // cosmetic, so it does not run on every frame; the last result is reused in between.
 // Exercises that target the hands run it every frame, everything else every 2nd frame.
@@ -56,7 +51,11 @@ const HAND_INTERVAL_MAX_HANDS = 3
 const BACKOFF_CHECK_EVERY = 30 // frames
 const BACKOFF_WARMUP = 60 // frames, so the slow first inferences don't trigger a back-off
  
-
+// Same threshold computeUserAngles uses, so "not visible" means the same thing everywhere.
+const MIN_VISIBILITY = 0.6
+// About a third of a second at 30 FPS before the step-back message appears.
+const UNSEEN_FRAMES_BEFORE_PROMPT = 10
+ 
 /**
  * @param {object} els   Element refs: video, canvas, overlay, startButton, stopButton, timer,
  *                       status, livePanel, liveScore, liveFrames, liveNote, liveTable, liveRows.
@@ -78,6 +77,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     liveNote: liveNoteEl,
     liveTable,
     liveRows: liveRowsEl,
+    soundButton,
   } = els
  
   // The video frame covers the whole canvas, so the canvas needs no alpha channel
@@ -85,14 +85,6 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
   const ctx = canvas.getContext('2d', { alpha: false })
   const drawingUtils = new DrawingUtils(ctx)
   const highlighted = new Set(landmarks)
-  // Landmarks that must be in view. Falls back to shoulders and hips when the
-  // exercise has no highlighted joints.
-  const requiredPoints = highlighted.size ? [...highlighted] : [11, 12, 23, 24]
-  const targetsInFrame = (pose) =>
-  requiredPoints.every((index) => {
-    const p = pose[index]
-    return p && (p.visibility ?? 1) >= MIN_VISIBILITY && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1
-  })
   const highlightedConnections = PoseLandmarker.POSE_CONNECTIONS.filter(
     ({ start, end }) => highlighted.has(start) && highlighted.has(end),
   )
@@ -111,6 +103,42 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
   const perfLog = new URLSearchParams(window.location.search).has('perf')
   const perf = new PerfMonitor({ budgetMs: FRAME_BUDGET_MS, log: perfLog })
   if (perfLog) window.__justStretchPerf = perf
+ 
+  // Landmarks that must be in view for the stretch to be judged. The pose model's rough
+  // hand points (17-22) are left out because their visibility is low even when you are in
+  // frame. Falls back to shoulders and hips when nothing else is highlighted.
+  const trackedPoints = [...highlighted].filter((index) => !POSE_HAND_POINTS.has(index))
+  const requiredPoints = trackedPoints.length ? trackedPoints : [11, 12, 23, 24]
+  const targetsInFrame = (pose) =>
+    requiredPoints.every((index) => {
+      const p = pose[index]
+      return p && (p.visibility ?? 1) >= MIN_VISIBILITY && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1
+    })
+ 
+  // "left_elbow" -> "left elbow", for the spoken cue.
+  const spokenName = (name) => name.replace(/_/g, ' ')
+  const worstJointName = (result) => {
+    let worst = null
+    for (const [name, joint] of Object.entries(result.perJoint)) {
+      if (!joint.ok && (!worst || joint.errorDeg > worst.errorDeg)) worst = { name, errorDeg: joint.errorDeg }
+    }
+    return worst ? spokenName(worst.name) : null
+  }
+ 
+  // Spoken cues (Web Speech API, no audio files). The coach decides what is worth saying.
+  const coach = new AudioCoach()
+  const refreshSoundButton = () => {
+    if (!soundButton) return
+    soundButton.hidden = !coach.supported
+    soundButton.textContent = coach.enabled ? 'Sound on' : 'Sound off'
+    soundButton.setAttribute('aria-pressed', String(coach.enabled))
+  }
+  const toggleSound = () => {
+    coach.setEnabled(!coach.enabled)
+    coach.unlock() // this click is a user gesture, so speech is allowed from here on
+    refreshSoundButton()
+  }
+  refreshSoundButton()
  
   let destroyed = false
   let landmarker = null
@@ -409,23 +437,32 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
  
     updateLivePanel(tProcess)
  
-    unseenFrames = pose?.length && targetsInFrame(pose) ? 0 : unseenFrames + 1
-
-if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
-  setStatus(
-    pose?.length
-      ? 'Step back a little so your whole upper body is in frame.'
-      : 'No body detected. Step back so the camera can see you.',
-    'warn',
-  )
-} else if (latest) {
-  setStatus(
-    latest.good ? 'Good form. Keep it up.' : 'Adjust your form: red joints are off the reference.',
-    latest.good ? 'ok' : 'warn',
-  )
-} else {
-  setStatus('Tracking. Green joints are the ones this stretch targets.', 'ok')
-}
+    const inFrame = Boolean(pose?.length) && targetsInFrame(pose)
+    unseenFrames = inFrame ? 0 : unseenFrames + 1
+ 
+    if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
+      setStatus(
+        pose?.length
+          ? 'Step back a little so your whole upper body is in frame.'
+          : 'No body detected. Step back so the camera can see you.',
+        'warn',
+      )
+    } else if (latest) {
+      setStatus(
+        latest.good ? 'Good form. Keep it up.' : 'Adjust your form: red joints are off the reference.',
+        latest.good ? 'ok' : 'warn',
+      )
+    } else {
+      setStatus('Tracking. Green joints are the ones this stretch targets.', 'ok')
+    }
+ 
+    coach.update({
+      now: tProcess,
+      inFrame,
+      tracked: Boolean(latest),
+      good: Boolean(latest?.good),
+      worstJoint: latest && !latest.good ? worstJointName(latest) : null,
+    })
  
     if (pose?.length) {
       // Skip the pose model's coarse hand points when real finger tracking is available.
@@ -567,6 +604,7 @@ if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
     if (vfcId !== null) video.cancelVideoFrameCallback?.(vfcId)
     clearTimeout(watchdogId)
     clearInterval(timerId)
+    coach.stop()
     frameId = null
     vfcId = null
     watchdogId = null
@@ -579,6 +617,9 @@ if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
     if (!landmarker || destroyed) {
       return
     }
+ 
+    // Must run inside the click, before the first await, or iOS Safari blocks later speech.
+    coach.unlock()
  
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus(cameraErrorMessage({ name: 'SecurityError' }), 'error')
@@ -632,6 +673,8 @@ if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
     latest = null
     smoothed = {}
     frameCount = 0
+    unseenFrames = 0
+    coach.reset()
     handCache = []
     handInterval = baseHandInterval
     perf.reset()
@@ -694,6 +737,7 @@ if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
  
   startButton.addEventListener('click', start)
   stopButton.addEventListener('click', stop)
+  soundButton?.addEventListener('click', toggleSound)
  
   // 7. Never leave the camera running after navigating away (tab close / bfcache).
   const onPageHide = () => halt()
@@ -713,6 +757,7 @@ if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
     destroyed = true
     startButton.removeEventListener('click', start)
     stopButton.removeEventListener('click', stop)
+    soundButton?.removeEventListener('click', toggleSound)
     window.removeEventListener('pagehide', onPageHide)
     if (window.__justStretchPerf === perf) delete window.__justStretchPerf
     halt()

@@ -21,6 +21,7 @@ export default function PoseStage({ videoUrl, targetArea, reference, stopButtonR
   const overlay = useRef(null)
   const startButton = useRef(null)
   const ownStopButton = useRef(null)
+  const soundButton = useRef(null)
   const stopButton = stopButtonRef ?? ownStopButton
   const timer = useRef(null)
   const status = useRef(null)
@@ -41,6 +42,7 @@ export default function PoseStage({ videoUrl, targetArea, reference, stopButtonR
         overlay: overlay.current,
         startButton: startButton.current,
         stopButton: stopButton.current,
+        soundButton: soundButton.current,
         timer: timer.current,
         status: status.current,
         livePanel: livePanel.current,
@@ -78,7 +80,8 @@ export default function PoseStage({ videoUrl, targetArea, reference, stopButtonR
               <Icon name="camera" className="h-6 w-6" />
             </span>
             <p className="text-sm">
-              Camera is off. Press <strong className="text-white">Start</strong> to begin.
+              Camera is off. Press <strong className="text-white">Start</strong>, then stand about two metres back so you are
+              visible from head to hips.
             </p>
           </div>
 
@@ -94,6 +97,11 @@ export default function PoseStage({ videoUrl, targetArea, reference, stopButtonR
         </button>
         <button ref={stopButton} type="button" disabled className={`${btn.secondary} ${stageButton}`}>
           End session
+        </button>
+        {/* Spoken cues. The tracker sets the label ("Sound on" / "Sound off") and hides this
+            button when the browser has no speech synthesis. */}
+        <button ref={soundButton} type="button" aria-pressed="true" className={`${btn.secondary} ${stageButton}`}>
+          Sound on
         </button>
         <p
           ref={status}
