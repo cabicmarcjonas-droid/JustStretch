@@ -37,20 +37,26 @@ router.get('/', async (req, res) => {
   const difficulty = asString(req.query.difficulty)
   const page = asPage(req.query.page)
 
-  const filter = {}
-  if (search) filter.title = { $regex: escapeRegex(search), $options: 'i' }
-  if (area) filter.targetArea = area
-  if (difficulty) filter.difficulty = difficulty
+  // Search and difficulty narrow the area chip counts; the area itself does not,
+  // so every chip shows how many results picking it would give.
+  const base = {}
+  if (search) base.title = { $regex: escapeRegex(search), $options: 'i' }
+  if (difficulty) base.difficulty = difficulty
+  const filter = area ? { ...base, targetArea: area } : base
 
-  const total = await Exercise.countDocuments(filter)
-  const data = await withAuthor(
-    Exercise.find(filter)
-      .sort({ createdAt: -1, _id: -1 })
-      .skip((page - 1) * PER_PAGE)
-      .limit(PER_PAGE),
-  )
+  const [total, data, byArea] = await Promise.all([
+    Exercise.countDocuments(filter),
+    withAuthor(
+      Exercise.find(filter)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip((page - 1) * PER_PAGE)
+        .limit(PER_PAGE),
+    ),
+    Exercise.aggregate([{ $match: base }, { $group: { _id: '$targetArea', total: { $sum: 1 } } }]),
+  ])
+  const areaCounts = Object.fromEntries(byArea.map((a) => [a._id, a.total]))
 
-  res.json({ data, meta: { page, lastPage: Math.max(1, Math.ceil(total / PER_PAGE)), total } })
+  res.json({ data, meta: { page, lastPage: Math.max(1, Math.ceil(total / PER_PAGE)), total, areaCounts } })
 })
 
 router.post('/', validate(exerciseSchema), async (req, res) => {
@@ -60,11 +66,19 @@ router.post('/', validate(exerciseSchema), async (req, res) => {
 })
 
 router.get('/:id', loadExercise, async (req, res) => {
-  const recentSessions = await StretchSession.find({ user: req.user._id, exercise: req.exercise._id })
-    .sort({ completedAt: -1 })
-    .limit(5)
+  const mine = { user: req.user._id, exercise: req.exercise._id }
+  const [recentSessions, totals] = await Promise.all([
+    StretchSession.find(mine).sort({ completedAt: -1 }).limit(5),
+    StretchSession.aggregate([
+      { $match: mine },
+      { $group: { _id: null, attempts: { $sum: 1 }, best: { $max: '$score' }, avg: { $avg: '$score' } } },
+    ]),
+  ])
+  const stats = totals[0]
+    ? { attempts: totals[0].attempts, best: totals[0].best, averageScore: Math.round(totals[0].avg) }
+    : { attempts: 0, best: null, averageScore: null }
 
-  res.json({ exercise: req.exercise, recentSessions })
+  res.json({ exercise: req.exercise, recentSessions, stats })
 })
 
 // Authorisation runs before validation, like UpdateExerciseRequest::authorize().

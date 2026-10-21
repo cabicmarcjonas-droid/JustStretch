@@ -1,9 +1,8 @@
-import '../css/AboutContact.css'
-
 import marcImage from '../assets/team_img/Cabic.jpg'
 import migsImage from '../assets/team_img/Estallo.png'
 import patrickImage from '../assets/team_img/Mendoza.jpg'
 import gabrielImage from '../assets/team_img/Resultay.png'
+import { card } from '../lib/ui.js'
 
 const team = [
   { name: 'Cabic, Marc Jonas', role: 'Frontend and User Interface Developer', image: marcImage },
@@ -14,17 +13,16 @@ const team = [
 
 export default function Team() {
   return (
-    <div className="team-members">
-      <h2>Meet our Team</h2>
-      <div className="team-grid">
-        {team.map((person) => (
-          <div className="team-card" key={person.name}>
-            <img src={person.image} alt={person.name} className="team-image" />
-            <h3>{person.name}</h3>
-            <strong>{person.role}</strong>
+    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+      {team.map((person) => (
+        <li key={person.name} className={`${card} flex items-center gap-4 p-5`}>
+          <img src={person.image} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-bold leading-snug">{person.name}</h3>
+            <p className="mt-0.5 text-[13px] font-medium leading-snug text-accent">{person.role}</p>
           </div>
-        ))}
-      </div>
-    </div>
+        </li>
+      ))}
+    </ul>
   )
 }

@@ -54,12 +54,12 @@ export default function Modal({ show, onClose, maxWidth = '2xl', children }) {
   return (
     <div className="fixed inset-0 overflow-y-auto px-4 py-6 sm:px-0 z-50" role="dialog" aria-modal="true">
       <div className="fixed inset-0 transform transition-all" onClick={onClose}>
-        <div className="absolute inset-0 bg-gray-500 opacity-75" />
+        <div className="absolute inset-0 bg-slate-950/55" />
       </div>
 
       <div
         ref={panel}
-        className={`mb-6 bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full ${MAX_WIDTH[maxWidth]} sm:mx-auto`}
+        className={`relative mb-6 mt-[12vh] bg-white rounded-3xl overflow-hidden shadow-2xl sm:w-full ${MAX_WIDTH[maxWidth]} sm:mx-auto`}
       >
         {children}
       </div>

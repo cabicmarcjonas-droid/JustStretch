@@ -1,5 +1,19 @@
+import { PrivacyBand } from '../components/Icon.jsx'
 import Team from '../components/Team.jsx'
 import PublicLayout from '../layouts/PublicLayout.jsx'
+import { card, container, eyebrow, sectionTitle } from '../lib/ui.js'
+
+const FACTS = [
+  ['33', 'body landmarks tracked live by MediaPipe'],
+  ['4', 'stretches with 3D reference animations'],
+  ['0', 'video frames uploaded, ever'],
+]
+
+const PROBLEMS = [
+  'Minor chronic muscle pain is common among students and desk workers, and it often goes untreated.',
+  'Professional physiotherapy costs money and travel time that many people cannot spare for a "minor" ache.',
+  'Following a stretch from a static picture or video gives no feedback, so people are never sure they are doing it right.',
+]
 
 const GOALS = [
   { n: 3, title: 'Good Health & Well-being', body: 'Encourages regular, safe movement to manage everyday musculoskeletal pain.' },
@@ -15,80 +29,103 @@ const STACK = [
   ['Styling', 'Tailwind CSS'],
   ['Pose tracking', 'MediaPipe Tasks Vision (PoseLandmarker and HandLandmarker)'],
   ['Build tool', 'Vite'],
+  ['3D content', 'Blender reference animations'],
 ]
 
-const h2 = 'text-2xl font-black italic tracking-tighter text-slate-900'
-const card = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'
+function SectionHeading({ kicker, title }) {
+  return (
+    <div>
+      <p className={eyebrow}>{kicker}</p>
+      <h2 className={`mt-2 ${sectionTitle} sm:text-3xl`}>{title}</h2>
+    </div>
+  )
+}
 
 export default function About() {
   return (
     <PublicLayout title="About">
-      <section className="mx-auto max-w-3xl px-6 pb-10 pt-16 text-center sm:pt-20">
-        <h1 className="mb-6 text-5xl font-black italic tracking-tighter text-slate-900">About JustStretch</h1>
-        <p className="text-lg leading-relaxed text-slate-600">
-          Many people live with a stiff neck or a sore lower back for months because seeing a physiotherapist is expensive, far away, or
-          hard to fit into a working week. Just Stretch is a small step toward closing that gap.
-        </p>
+      <section className={`${container} grid items-center gap-10 pb-12 pt-14 sm:pt-20 lg:grid-cols-[1fr_420px] lg:gap-16`}>
+        <div>
+          <p className={eyebrow}>About</p>
+          <h1 className="mt-3 text-4xl font-black leading-tight tracking-tight sm:text-5xl">Physio-style guidance, without the clinic visit.</h1>
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-600">
+            Many people live with a stiff neck or a sore lower back for months because seeing a physiotherapist is expensive, far away, or
+            hard to fit into a working week. JustStretch is a small step toward closing that gap.
+          </p>
+        </div>
+        <ul className="space-y-3">
+          {FACTS.map(([n, text]) => (
+            <li key={text} className={`${card} flex items-center gap-4 px-5 py-4`}>
+              <span className="w-12 text-4xl font-black italic tracking-tighter text-accent">{n}</span>
+              <span className="text-[15px] font-medium text-slate-700">{text}</span>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <section className="mx-auto max-w-3xl space-y-12 px-6 py-10">
-        <div>
-          <h2 className={h2}>The problem</h2>
-          <ul className="mt-4 list-disc space-y-3 ps-5 text-slate-600">
-            <li>Minor chronic muscle pain is common among students and desk workers, and it often goes untreated.</li>
-            <li>Professional physiotherapy costs money and travel time that many people cannot spare for a &quot;minor&quot; ache.</li>
-            <li>Following a stretch from a static picture or video gives no feedback, so people are never sure they are doing it right.</li>
+      <section className={`${container} grid gap-6 py-6 lg:grid-cols-2`}>
+        <div className={`${card} p-6 sm:p-7`}>
+          <h2 className={sectionTitle}>The problem</h2>
+          <ul className="mt-4 space-y-3">
+            {PROBLEMS.map((text) => (
+              <li key={text} className="flex gap-3 text-[15px] leading-relaxed text-slate-600">
+                <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                {text}
+              </li>
+            ))}
           </ul>
         </div>
-
-        <div>
-          <h2 className={h2}>Our approach</h2>
-          <p className="mt-4 text-slate-600">
-            Just Stretch offers a curated, community-maintained library of gentle stretches grouped by body area. When you start a
-            session, your webcam feed is analysed in the browser by a pose-estimation model. The joints that matter for that stretch are
-            highlighted, giving you a live mirror of your own posture. Afterwards you rate your form and the app keeps a simple history so
-            you can see your consistency improve.
-          </p>
-        </div>
-
-        <div>
-          <h2 className={h2}>Sustainable Development Goals</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            {GOALS.map((goal) => (
-              <div key={goal.n} className={card}>
-                <p className="text-3xl font-black italic tracking-tighter text-emerald-600">{goal.n}</p>
-                <p className="mt-1 font-bold">{goal.title}</p>
-                <p className="mt-2 text-sm text-slate-600">{goal.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <h2 className={h2}>Built with</h2>
-          <dl className="mt-4 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white text-sm shadow-sm">
-            {STACK.map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-4 px-5 py-3">
-                <dt className="font-bold">{label}</dt>
-                <dd className="text-right text-slate-600">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-          <h2 className="text-2xl font-black italic tracking-tighter text-emerald-800">Your privacy</h2>
-          <p className="mt-3 text-emerald-900/90">
-            The pose model runs entirely inside your browser. Camera frames and body landmarks are never uploaded or stored. The only
-            session data sent to our server is what you type or choose yourself: a form score, the session length and optional notes.
+        <div className={`${card} p-6 sm:p-7`}>
+          <h2 className={sectionTitle}>Our approach</h2>
+          <p className="mt-4 text-[15px] leading-relaxed text-slate-600">
+            A curated, community-maintained library of gentle stretches grouped by body area. When you start a session, a
+            pose-estimation model analyses your webcam feed in the browser and highlights the joints that matter, giving you a live
+            mirror of your posture. Afterwards you get a form score, and the app keeps a simple history so you can see your consistency
+            improve.
           </p>
         </div>
       </section>
 
-      <Team />
+      <section className={`${container} py-12`}>
+        <SectionHeading kicker="Sustainable Development Goals" title="Why it matters" />
+        <div className="mt-6 grid gap-6 md:grid-cols-3">
+          {GOALS.map((goal) => (
+            <div key={goal.n} className={`${card} p-6`}>
+              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-xl font-black italic text-white">
+                {goal.n}
+              </span>
+              <h3 className="mt-4 text-lg font-bold">{goal.title}</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{goal.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <p className="mx-auto max-w-3xl px-6 pb-16 text-sm text-slate-500">
-        Just Stretch is a student project and is not a medical device. If a stretch causes sharp or worsening pain, stop and seek
+      <section className={`${container} py-6`}>
+        <SectionHeading kicker="Built with" title="The stack" />
+        <dl className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {STACK.map(([labelText, value]) => (
+            <div key={labelText} className={`${card} px-5 py-4`}>
+              <dt className="text-xs font-bold uppercase tracking-wider text-slate-500">{labelText}</dt>
+              <dd className="mt-1 text-[15px] font-semibold">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className={`${container} py-12`}>
+        <PrivacyBand />
+      </section>
+
+      <section className={`${container} pb-10`}>
+        <SectionHeading kicker="Team" title="Meet the team" />
+        <div className="mt-6">
+          <Team />
+        </div>
+      </section>
+
+      <p className={`${container} pb-16 text-sm text-slate-500`}>
+        JustStretch is a student project and is not a medical device. If a stretch causes sharp or worsening pain, stop and seek
         professional advice.
       </p>
     </PublicLayout>
