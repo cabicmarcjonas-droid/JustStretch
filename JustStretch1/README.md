@@ -71,6 +71,7 @@ Four exercises have a reference video and pose file and are scored by the camera
 |---|---|
 | `npm run dev` | Client and API together |
 | `npm run seed` | Reset and reseed the database in `MONGODB_URI` |
+| `npm --prefix server run backfill` | Give older sessions synthetic per-joint results (`-- --undo` takes them back out) |
 | `npm run build` | Production build of the client into `dist/` |
 | `npm run lint` | ESLint for client and server |
 | `npm test` | API tests (`node:test` + `supertest`, in-memory MongoDB) |
@@ -89,7 +90,8 @@ Four exercises have a reference video and pose file and are scored by the camera
 | Edit exercise | `/exercises/:id/edit` | Author only, others see the 403 page |
 | Webcam session | `/exercises/:id/session` | Logged in |
 | Session history | `/sessions` | Logged in |
-| Profile | `/profile` | Logged in |
+| Session detail (per-joint results) | `/sessions/:id` | Owner only |
+| Profile (body map, flexibility, account) | `/profile` | Logged in |
 
 ## API
 
@@ -100,10 +102,12 @@ All routes are under `/api`. Errors are JSON; validation failures return `422 { 
 | POST | `/auth/register`, `/auth/login`, `/auth/logout` | Server-side session cookie (httpOnly, `sameSite: lax`) |
 | GET | `/auth/me` | `{ user }` or `{ user: null }` |
 | PATCH / PUT / DELETE | `/profile`, `/profile/password`, `/profile` | Name and email, password, delete account |
+| GET / PUT | `/profile` | The body map (pain areas) and the starting flexibility baseline. PUT changes nothing else about the account |
 | GET / POST | `/exercises` | 9 per page; `search`, `area`, `difficulty`, `page` |
 | GET / PUT / DELETE | `/exercises/:id` | PUT and DELETE are author only |
-| POST | `/exercises/:id/sessions` | Saves a session for the current user |
+| POST | `/exercises/:id/sessions` | Saves a session for the current user, with the camera's tracking results when the exercise has a reference pose |
 | GET | `/sessions` | Own sessions, 15 per page, `exercise` filter |
+| GET | `/sessions/:id` | One session with its per-joint results, owner only |
 | DELETE | `/sessions/:id` | Owner only |
 | GET | `/dashboard` | Totals, 7-day average, minutes this week (weeks start Monday, Asia/Manila), top area, day streak (Asia/Manila), recent sessions, suggestions |
 
@@ -121,9 +125,17 @@ public/         videos/ and poses/ (reference clips and their pose data)
 
 `/main` redirects to `/dashboard` and `/exercise/:id` redirects to `/exercises/:id`.
 
+## Demo data and the tracking results
+
+A session saved with the camera keeps the per-joint tracking results: the average angle error and the share of judged frames each joint stayed inside its margin, plus the judged frame count, the frames within the margin, the dropped frames and the tracking score. The seeded demo sessions include them, so the session detail page (`/sessions/:id`) has something to show.
+
+Sessions saved before those fields existed cannot have them: the tracker only displayed them, it never stored them, so they show the "no camera tracking data" note. `npm --prefix server run backfill` fills those older sessions with synthetic numbers derived from the score each one already has, so the demo looks complete. **Those numbers are made up, not measurements.** `npm --prefix server run backfill -- --undo` removes them again.
+
 ## Privacy
 
-Pose tracking runs entirely in the browser. Camera frames and body landmarks are never sent to the server; only the score, duration and optional notes are saved.
+Pose tracking runs entirely in the browser. Camera frames and body landmarks are never sent to the server; only the score, the duration, the optional notes and the tracking results are saved. The tracking results are aggregates, not images: per joint, the average angle error and the share of judged frames the joint stayed inside its margin of error, plus the number of judged frames, the number within the margin, the number of dropped frames and the tracking score.
+
+The profile page stores what the member types in themselves: the body areas they marked as painful and their starting flexibility measurements. Nothing about them is inferred from the camera.
 
 ## Not converted yet
 

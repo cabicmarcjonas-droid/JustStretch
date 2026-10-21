@@ -80,6 +80,16 @@ router.get('/', async (req, res) => {
   })
 })
 
+// One session with its tracking results, for the session detail page.
+router.get('/:id', async (req, res) => {
+  if (!isValidId(req.params.id)) return notFound(res)
+  const session = await StretchSession.findById(req.params.id).populate('exercise', 'title targetArea videoUrl')
+  if (!session) return notFound(res)
+  if (String(session.user) !== String(req.user._id)) return forbidden(res)
+
+  res.json({ session })
+})
+
 router.delete('/:id', async (req, res) => {
   if (!isValidId(req.params.id)) return notFound(res)
   const session = await StretchSession.findById(req.params.id)

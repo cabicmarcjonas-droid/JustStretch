@@ -100,6 +100,12 @@ router.post('/:id/sessions', loadExercise, validate(sessionSchema), async (req, 
     score: req.body.score,
     durationSeconds: req.body.durationSeconds ?? null,
     notes: req.body.notes ?? null,
+    jointResults: req.body.jointResults ?? [],
+    judgedFrames: req.body.judgedFrames ?? null,
+    framesWithinMargin: req.body.framesWithinMargin ?? null,
+    trackingScore: req.body.trackingScore ?? null,
+    droppedFrames: req.body.droppedFrames ?? null,
+    fatigue: req.body.fatigue ?? null,
     completedAt: new Date(),
   })
 

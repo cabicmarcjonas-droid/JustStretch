@@ -8,7 +8,8 @@ import { areaLabel, hasPlayableVideo, highlightsHands, instructionSteps } from '
 import { on } from '../lib/eventBus.js'
 import { useFetch, useForm, usePageTitle } from '../lib/hooks.js'
 import { thumbnailFor } from '../lib/media.js'
-import { card, container, sectionTitle, statLabel, textarea } from '../lib/ui.js'
+import { FATIGUE_LABELS, toSessionMetrics } from '../lib/sessionMetrics.js'
+import { card, container, label as labelClass, sectionTitle, statLabel, textarea } from '../lib/ui.js'
 import PoseStage from '../pose/PoseStage.jsx'
 import NotFound from './NotFound.jsx'
 
@@ -23,6 +24,7 @@ function ScoreForm({ exercise }) {
   const [seconds, setSeconds] = useState(null)
   const [auto, setAuto] = useState(false)
   const [summary, setSummary] = useState(null)
+  const [fatigue, setFatigue] = useState(null)
   const section = useRef(null)
 
   useEffect(
@@ -48,7 +50,14 @@ function ScoreForm({ exercise }) {
   const submit = (event) => {
     event.preventDefault()
     form.submit(async ({ notes }) => {
-      const { message } = await api.post(`/exercises/${exercise.id}/sessions`, { score, durationSeconds: seconds, notes })
+      const { message } = await api.post(`/exercises/${exercise.id}/sessions`, {
+        score,
+        durationSeconds: seconds,
+        notes,
+        // The camera results, in the names the API stores them under.
+        ...toSessionMetrics(summary),
+        ...(fatigue == null ? {} : { fatigue }),
+      })
       navigate('/dashboard', { state: { flash: message } })
     })
   }
@@ -153,6 +162,32 @@ function ScoreForm({ exercise }) {
             </div>
             <InputError messages={form.errors.score} className="mt-2" />
             <InputError messages={form.errors.durationSeconds} className="mt-2" />
+          </div>
+
+          <div>
+            <p className={labelClass}>How tired do you feel?</p>
+            <p className="text-[13px] text-slate-500">Optional. Your own rating of how tired your body felt at the end.</p>
+            <div role="group" aria-label="Fatigue rating" className="mt-3 flex gap-2">
+              {[1, 2, 3, 4, 5].map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  onClick={() => setFatigue(fatigue === level ? null : level)}
+                  aria-pressed={fatigue === level}
+                  className={`h-11 flex-1 rounded-xl border text-sm font-bold tabular-nums transition-colors ${
+                    fatigue === level
+                      ? 'border-accent bg-accent text-white'
+                      : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50'
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[13px] text-slate-500">
+              {fatigue == null ? 'Not set' : `${fatigue} — ${FATIGUE_LABELS[fatigue]}`}
+            </p>
+            <InputError messages={form.errors.fatigue} className="mt-2" />
           </div>
 
           <div>

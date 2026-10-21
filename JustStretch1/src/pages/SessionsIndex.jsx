@@ -11,6 +11,7 @@ import { areaLabel, formatDuration } from '../lib/enums.js'
 import { emit } from '../lib/eventBus.js'
 import { formatDate, formatTime, plural } from '../lib/format.js'
 import { useFetch } from '../lib/hooks.js'
+import { FATIGUE_LABELS } from '../lib/sessionMetrics.js'
 import { card, container, pageTitle, sectionTitle, select, statLabel } from '../lib/ui.js'
 
 const PER_PAGE = 15
@@ -196,7 +197,17 @@ export default function SessionsIndex() {
                             </div>
                           </td>
                           <td className="px-3 py-3">
-                            <ScoreBadge score={session.score} />
+                            <div className="flex items-center gap-2">
+                              <ScoreBadge score={session.score} />
+                              {session.fatigue != null && (
+                                <span
+                                  title={`Fatigue: ${FATIGUE_LABELS[session.fatigue]}`}
+                                  className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                                >
+                                  Fatigue {session.fatigue}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="hidden px-3 py-3 tabular-nums text-slate-600 sm:table-cell">{formatDuration(session.durationSeconds)}</td>
                           <td className="whitespace-nowrap px-3 py-3">
@@ -204,7 +215,15 @@ export default function SessionsIndex() {
                             <p className="text-xs text-slate-500">{formatTime(session.completedAt)}</p>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <DeleteButton onDelete={() => remove(session)} label={`Delete session from ${formatDate(session.completedAt)}`} />
+                            <div className="flex items-center justify-end gap-3">
+                              <Link
+                                to={`/sessions/${session.id}`}
+                                className="text-sm font-bold text-accent transition-colors hover:text-accent-dark"
+                              >
+                                Details
+                              </Link>
+                              <DeleteButton onDelete={() => remove(session)} label={`Delete session from ${formatDate(session.completedAt)}`} />
+                            </div>
                           </td>
                         </tr>
                       ))}

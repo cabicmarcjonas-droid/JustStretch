@@ -3,9 +3,10 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { areaLabel } from '../lib/enums.js'
 import { card } from '../lib/ui.js'
 import DifficultyBadge from './DifficultyBadge.jsx'
+import Icon from './Icon.jsx'
 import Thumbnail from './Thumbnail.jsx'
 
-export default function ExerciseCard({ exercise, className = '' }) {
+export default function ExerciseCard({ exercise, recommended = false, className = '' }) {
   const { user } = useAuth()
   const byYou = exercise.author?.id === user?.id
 
@@ -25,6 +26,13 @@ export default function ExerciseCard({ exercise, className = '' }) {
             {exercise.title}
           </Link>
         </h3>
+
+        {recommended && (
+          <p className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-accent">
+            <Icon name="check" className="h-3 w-3" strokeWidth={3} />
+            Recommended for you
+          </p>
+        )}
 
         <p className="mt-1.5 line-clamp-2 text-sm text-muted">{exercise.description}</p>
 

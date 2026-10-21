@@ -5,6 +5,7 @@ import ExerciseCard from '../components/ExerciseCard.jsx'
 import Icon from '../components/Icon.jsx'
 import { SearchIcon } from '../components/icons.jsx'
 import Pagination from '../components/Pagination.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import AppLayout from '../layouts/AppLayout.jsx'
 import { areaOptions, difficultyOptions } from '../lib/enums.js'
 import { toQuery } from '../lib/api.js'
@@ -108,6 +109,7 @@ function FilterForm({ filters, onApply }) {
 }
 
 export default function ExercisesIndex() {
+  const { user } = useAuth()
   const [params, setParams] = useSearchParams()
   const filters = {
     search: (params.get('search') ?? '').trim(),
@@ -123,7 +125,11 @@ export default function ExercisesIndex() {
   const apply = (next) => setParams(Object.fromEntries(Object.entries(next).filter(([, value]) => value.trim() !== '')))
   const pageLink = (target) => `/exercises${toQuery({ ...filters, page: target > 1 ? target : '' })}`
 
-  const exercises = data?.data ?? []
+  // The stretches that match the areas the member marked on their body map go
+  // first. Members without a body map keep the usual order.
+  const painAreas = user?.painAreas ?? []
+  const isRecommended = (exercise) => painAreas.includes(exercise.targetArea)
+  const exercises = [...(data?.data ?? [])].sort((a, b) => Number(isRecommended(b)) - Number(isRecommended(a)))
   const total = data?.meta.total ?? 0
 
   return (
@@ -177,7 +183,7 @@ export default function ExercisesIndex() {
               <>
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {exercises.map((exercise) => (
-                    <ExerciseCard key={exercise.id} exercise={exercise} />
+                    <ExerciseCard key={exercise.id} exercise={exercise} recommended={isRecommended(exercise)} />
                   ))}
                 </div>
                 <Pagination meta={data.meta} perPage={PER_PAGE} to={pageLink} noun="exercises" />

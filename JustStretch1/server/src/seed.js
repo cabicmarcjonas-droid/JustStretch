@@ -166,6 +166,56 @@ const CURATED = [
   },
 ]
 
+// The exercises that have a reference pose file, with the joints the camera
+// judges for them (public/poses/pose_*.json). Sessions for these exercises
+// carry the tracking results the camera produced.
+export const TRACKED_JOINTS = {
+  neck_side_tilt: ['neck_tilt'],
+  cross_body_shoulder: ['left_elbow', 'right_elbow', 'left_shoulder', 'right_shoulder'],
+  overhead_side_bend: ['left_elbow', 'right_elbow', 'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'trunk_lean', 'neck_tilt'],
+  standing_hamstring_reach: [
+    'left_shoulder',
+    'right_shoulder',
+    'left_hip',
+    'right_hip',
+    'left_knee',
+    'right_knee',
+    'left_ankle',
+    'right_ankle',
+    'trunk_lean',
+    'neck_tilt',
+  ],
+}
+
+// The pose file name for an exercise video: "/videos/neck_side_tilt.mp4" -> "neck_side_tilt".
+export function poseName(videoUrl) {
+  if (!videoUrl) return null
+  return String(videoUrl)
+    .split('/')
+    .pop()
+    .replace(/\.[^.]+$/, '')
+}
+
+// Tracking results for one session, the way the camera would have reported them.
+function seedTracking(joints) {
+  const judgedFrames = faker.number.int({ min: 180, max: 620 })
+  const framesWithinMargin = faker.number.int({ min: Math.round(judgedFrames * 0.45), max: judgedFrames })
+  const withinPct = Math.round((100 * framesWithinMargin) / judgedFrames)
+
+  return {
+    jointResults: joints.map((joint) => ({
+      joint,
+      avgError: faker.number.float({ min: 1.5, max: 22, fractionDigits: 1 }),
+      timeInRangePct: Math.min(100, Math.max(0, withinPct + faker.number.int({ min: -25, max: 25 }))),
+    })),
+    judgedFrames,
+    framesWithinMargin,
+    trackingScore: withinPct,
+    droppedFrames: faker.number.int({ min: 0, max: 42 }),
+    fatigue: faker.helpers.maybe(() => faker.number.int({ min: 1, max: 5 }), { probability: 0.7 }) ?? null,
+  }
+}
+
 async function seedUsers() {
   // One hash reused for every account, like UserFactory's static $password.
   const password = await bcrypt.hash('password', 10)
@@ -206,6 +256,9 @@ async function seedExercises(demo, others) {
 
 async function seedSessions(demo, others, exercises) {
   const now = Date.now()
+  // The stretches the camera can track, so the demo account's recent sessions
+  // have per-joint results to open.
+  const tracked = exercises.filter((exercise) => TRACKED_JOINTS[poseName(exercise.videoUrl)])
 
   const docs = Array.from({ length: TOTAL_SESSIONS }, (_, index) => {
     const isDemo = index < DEMO_SESSIONS
@@ -218,13 +271,23 @@ async function seedSessions(demo, others, exercises) {
         ? pinned[index]
         : faker.number.int({ min: 60_000, max: 30 * DAY_MS })
 
+    const exercise =
+      isDemo && index < pinned.length && tracked.length > 0 ? tracked[index % tracked.length] : faker.helpers.arrayElement(exercises)
+    const joints = TRACKED_JOINTS[poseName(exercise.videoUrl)]
+    const tracking = joints ? seedTracking(joints) : {}
+
     return {
       user: isDemo ? demo._id : faker.helpers.arrayElement(others)._id,
-      exercise: faker.helpers.arrayElement(exercises)._id,
-      score: faker.number.int({ min: 35, max: 98 }),
+      exercise: exercise._id,
+      // A tracked session scores close to what the camera measured.
+      score:
+        tracking.trackingScore == null
+          ? faker.number.int({ min: 35, max: 98 })
+          : Math.min(100, Math.max(0, tracking.trackingScore + faker.number.int({ min: -6, max: 6 }))),
       durationSeconds: faker.number.int({ min: 60, max: 600 }),
       notes: faker.helpers.maybe(() => faker.helpers.arrayElement(NOTE_POOL), { probability: 0.4 }) ?? null,
       completedAt: new Date(now - ageMs),
+      ...tracking,
     }
   })
 

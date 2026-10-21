@@ -12,6 +12,7 @@ const LINKS = [
   { to: '/dashboard', label: 'Dashboard', end: true },
   { to: '/exercises', label: 'Exercises' },
   { to: '/sessions', label: 'My Sessions' },
+  { to: '/profile', label: 'Profile' },
 ]
 
 const menuItem =

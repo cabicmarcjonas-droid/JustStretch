@@ -97,6 +97,9 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
   let scorer = new SessionScorer()
   let latest = null
   let smoothed = {}
+  // Camera frames that reached us but produced no skeleton, so they could not
+  // be judged. Reported with the session as `droppedFrames`.
+  let droppedFrames = 0
 
   const setStatus = (message, tone = 'muted') => {
     statusEl.textContent = message
@@ -336,6 +339,9 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     const hands = handLandmarker?.detectForVideo(video, timestamp).landmarks ?? []
     const handsFound = hands.length > 0
 
+    // The camera gave us a frame but the pose model found nobody in it.
+    if (!pose?.length) droppedFrames++
+
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
@@ -490,6 +496,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     scorer = new SessionScorer()
     latest = null
     smoothed = {}
+    droppedFrames = 0
     resetLivePanel()
     timerEl.textContent = formatElapsed(0)
     timerId = setInterval(() => {
@@ -529,6 +536,10 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
         judgedFrames: summary.judgedFrames,
         goodFrames: summary.goodFrames,
         skippedFrames: summary.skippedFrames,
+        // The raw score, without the minimum-judged-frames check the suggestion
+        // uses, so the session can store what the tracker actually measured.
+        trackingScore: summary.score,
+        droppedFrames,
         joints: reference
           ? reference.targetJoints
               .filter((name) => name in summary.meanErrorDeg)

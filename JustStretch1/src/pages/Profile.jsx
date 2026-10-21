@@ -6,15 +6,36 @@ import Modal from '../components/Modal.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import AppLayout from '../layouts/AppLayout.jsx'
 import { api } from '../lib/api.js'
+import { PAIN_AREAS, areaLabel } from '../lib/enums.js'
 import { initials } from '../lib/format.js'
-import { useForm } from '../lib/hooks.js'
+import { useFetch, useForm } from '../lib/hooks.js'
 import { btn, card, container, pageTitle } from '../lib/ui.js'
 
 const SECTIONS = [
+  { id: 'body', label: 'Body map', icon: 'body' },
+  { id: 'flexibility', label: 'Flexibility', icon: 'chart' },
   { id: 'profile', label: 'Profile', icon: 'user' },
   { id: 'password', label: 'Password', icon: 'key' },
   { id: 'delete', label: 'Delete account', icon: 'trash' },
 ]
+
+// The three flexibility tests, with the unit each one is measured in.
+const TESTS = [
+  { id: 'sit_and_reach', label: 'Sit and reach', unit: 'cm', min: 0, max: 200 },
+  { id: 'neck_range', label: 'Neck range', unit: '1-5', min: 1, max: 5 },
+  { id: 'shoulder_range', label: 'Shoulder range', unit: '1-5', min: 1, max: 5 },
+]
+
+// Where each area button sits on the silhouette, from the head down.
+const AREA_POSITIONS = {
+  neck: 'top-[12%]',
+  shoulders: 'top-[16%]',
+  upper_back: 'top-[30%]',
+  lower_back: 'top-[43%]',
+  hips: 'top-[57%]',
+  quads: 'top-[72%]',
+  hamstrings: 'top-[85%]',
+}
 
 // "Saved." disappears after two seconds. Render it with a new `key` each time to show it again.
 function SavedNote() {
@@ -39,6 +60,139 @@ function SectionHeader({ title, children }) {
       <h2 className="text-xl font-black italic tracking-tighter text-ink">{title}</h2>
       <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-600">{children}</p>
     </header>
+  )
+}
+
+// A simple front-facing silhouette, so the buttons land on the part they name.
+function BodySilhouette() {
+  return (
+    <svg viewBox="0 0 200 400" className="absolute inset-0 h-full w-full text-slate-200" aria-hidden="true" focusable="false">
+      <g fill="currentColor">
+        <circle cx="100" cy="26" r="18" />
+        <rect x="92" y="42" width="16" height="14" rx="6" />
+        <rect x="64" y="56" width="72" height="172" rx="26" />
+        <rect x="40" y="62" width="18" height="150" rx="9" />
+        <rect x="142" y="62" width="18" height="150" rx="9" />
+        <rect x="70" y="224" width="26" height="158" rx="13" />
+        <rect x="104" y="224" width="26" height="158" rx="13" />
+      </g>
+    </svg>
+  )
+}
+
+const areaButton = (active) =>
+  `absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-bold transition-colors ${
+    active ? 'border-accent bg-accent text-white shadow-sm' : 'border-slate-300 bg-white text-slate-700 hover:border-accent hover:text-accent'
+  }`
+
+// The body map: tap an area to select it, tap it again to clear it.
+function BodyMap({ painAreas, onToggle }) {
+  return (
+    <div className="relative mx-auto mt-6 aspect-[1/2] w-full max-w-[220px]">
+      <BodySilhouette />
+      {PAIN_AREAS.map((area) => (
+        <button
+          key={area}
+          type="button"
+          onClick={() => onToggle(area)}
+          aria-pressed={painAreas.includes(area)}
+          className={`${areaButton(painAreas.includes(area))} ${AREA_POSITIONS[area]}`}
+        >
+          {areaLabel(area)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// The body map and the starting flexibility. One form, one Save button.
+function BodyAndFlexibility() {
+  const { data } = useFetch('/profile')
+
+  // Remount the form once the saved values arrive, so it starts from them.
+  return <BodyAndFlexibilityForm key={data?.user?.id ?? 'loading'} profile={data?.user} />
+}
+
+function BodyAndFlexibilityForm({ profile }) {
+  const { setUser } = useAuth()
+  const measurements = Object.fromEntries(
+    (profile?.baseline?.measurements ?? [])
+      .filter((measurement) => TESTS.some((test) => test.id === measurement.test))
+      .map((measurement) => [measurement.test, measurement.value]),
+  )
+  const { bind, errors, processing, submit } = useForm({
+    sit_and_reach: measurements.sit_and_reach ?? '',
+    neck_range: measurements.neck_range ?? '',
+    shoulder_range: measurements.shoulder_range ?? '',
+  })
+  const [painAreas, setPainAreas] = useState(() => profile?.painAreas ?? [])
+  const [savedAt, setSavedAt] = useState(0)
+
+  const toggle = (area) =>
+    setPainAreas((current) => (current.includes(area) ? current.filter((value) => value !== area) : [...current, area]))
+
+  const save = (event) => {
+    event.preventDefault()
+    submit(async (formValues) => {
+      const measurements = TESTS.filter((test) => formValues[test.id] !== '')
+        .map((test) => ({ test: test.id, value: Number(formValues[test.id]), unit: test.unit }))
+
+      const { user } = await api.put('/profile', {
+        painAreas,
+        baseline: {
+          assessedAt: measurements.length > 0 ? new Date().toISOString() : null,
+          measurements,
+        },
+      })
+
+      // Keep the rest of the app in step with the new body map.
+      setUser(user)
+      setSavedAt(Date.now())
+    })
+  }
+
+  return (
+    <form onSubmit={save} className="space-y-6">
+      <section id="body" className={`${card} scroll-mt-24 p-6 sm:p-8`}>
+        <SectionHeader title="Body map">
+          Tap the areas where you feel pain. We use them to put the stretches that help you first in the library.
+        </SectionHeader>
+        <BodyMap painAreas={painAreas} onToggle={toggle} />
+      </section>
+
+      <section id="flexibility" className={`${card} scroll-mt-24 p-6 sm:p-8`}>
+        <SectionHeader title="Starting flexibility">
+          Your starting point, so later sessions can be compared against it. Leave a field empty if you have not measured it.
+        </SectionHeader>
+
+        <div className="mt-6 grid max-w-2xl gap-5 sm:grid-cols-3">
+          {TESTS.map((test) => (
+            <div key={test.id}>
+              <InputLabel htmlFor={test.id} value={test.label} />
+              <div className="relative mt-1.5">
+                <TextInput
+                  id={test.id}
+                  type="number"
+                  inputMode="numeric"
+                  min={test.min}
+                  max={test.max}
+                  step={test.min === 1 ? 1 : 'any'}
+                  className="pe-12"
+                  {...bind(test.id)}
+                />
+                <span className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-500">{test.unit}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="flex items-center gap-4">
+        <PrimaryButton disabled={processing}>Save</PrimaryButton>
+        {savedAt > 0 && <SavedNote key={savedAt} />}
+      </div>
+      <InputError messages={errors._form} className="mt-2" />
+    </form>
   )
 }
 
@@ -207,10 +361,10 @@ function DeleteAccount() {
 }
 
 export default function Profile() {
-  const header = <h1 className={pageTitle}>Account settings</h1>
+  const header = <h1 className={pageTitle}>Profile</h1>
 
   return (
-    <AppLayout title="Account settings" header={header}>
+    <AppLayout title="Profile" header={header}>
       <div className={`${container} grid gap-8 pb-16 pt-6 lg:grid-cols-[220px_1fr]`}>
         <nav aria-label="Settings sections" className="min-w-0 lg:sticky lg:top-24 lg:self-start">
           <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:flex-col">
@@ -228,6 +382,7 @@ export default function Profile() {
           </ul>
         </nav>
         <div className="min-w-0 space-y-6">
+          <BodyAndFlexibility />
           <ProfileInformation />
           <UpdatePassword />
           <DeleteAccount />
