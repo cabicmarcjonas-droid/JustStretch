@@ -7,6 +7,9 @@ import { createApp } from '../src/app.js'
 import { computeStreak } from '../routes/dashboard.js'
 import { Exercise } from '../models/Exercise.js'
 import { StretchSession } from '../models/StretchSession.js'
+import { Therapist } from '../models/Therapist.js'
+import { referralReason } from '../services/referral.js'
+import { REFERRAL_HIGH_FATIGUE, REFERRAL_LOW_SCORE, REFERRAL_RECENT_SESSIONS } from '../shared/referral.js'
 
 let mongod
 let app
@@ -425,5 +428,115 @@ describe('streak', () => {
     assert.equal((await user.get('/api/dashboard')).body.streak, 0)
     await user.post(`/api/exercises/${exercise.id}/sessions`).send({ score: 70 })
     assert.equal((await user.get('/api/dashboard')).body.streak, 1)
+  })
+})
+
+describe('referral', () => {
+  // Seeds the sample therapists once; the threshold numbers come from shared/referral.js.
+  before(async () => {
+    const { seedTherapists } = await import('../src/seed.js')
+    if ((await Therapist.countDocuments()) === 0) await seedTherapists()
+  })
+
+  const save = (agent, exercise, body) => agent.post(`/api/exercises/${exercise.id}/sessions`).send(body)
+
+  test('flags persistent low scores in one body area and returns a matching therapist', async () => {
+    const user = await signUp('Struggling', 'struggling@example.com')
+    // Two different neck exercises: the rule looks at the body area, not one exercise.
+    const a = (await user.post('/api/exercises').send(exerciseBody({ title: 'Neck A', targetArea: 'neck' }))).body.exercise
+    const b = (await user.post('/api/exercises').send(exerciseBody({ title: 'Neck B', targetArea: 'neck' }))).body.exercise
+    const low = REFERRAL_LOW_SCORE - 10
+
+    for (let i = 1; i < REFERRAL_RECENT_SESSIONS; i += 1) {
+      const res = await save(user, i % 2 ? a : b, { score: low })
+      assert.equal(res.status, 201)
+      assert.equal(res.body.referral, null, 'no referral before enough sessions')
+    }
+
+    const res = await save(user, a, { score: low })
+    assert.equal(res.status, 201)
+    assert.equal(res.body.referral.reason, 'low_scores')
+    assert.equal(res.body.referral.area, 'neck')
+    assert.match(res.body.referral.message, /scored below/)
+    assert.ok(res.body.referral.therapist.areas.includes('neck'))
+    assert.ok(res.body.referral.therapist.phone)
+    assert.match(res.body.message, /physical therapist/)
+
+    // The flag is stored on the session and the detail page gets the full contact.
+    const detail = await user.get(`/api/sessions/${res.body.session.id}`)
+    assert.equal(detail.body.session.referral.reason, 'low_scores')
+    assert.equal(detail.body.session.referral.therapist.name, res.body.referral.therapist.name)
+    assert.match(detail.body.session.referral.message, /scored below/)
+  })
+
+  test('one good session in the window means no referral', async () => {
+    const user = await signUp('Mixed', 'mixed@example.com')
+    const ex = (await user.post('/api/exercises').send(exerciseBody({ title: 'Hip opener', targetArea: 'hips' }))).body.exercise
+    const scores = Array.from({ length: REFERRAL_RECENT_SESSIONS }, (_, i) => (i === 1 ? REFERRAL_LOW_SCORE : REFERRAL_LOW_SCORE - 5))
+    let last
+    for (const score of scores) last = await save(user, ex, { score })
+    assert.equal(last.body.referral, null)
+  })
+
+  test('low scores in different body areas do not add up', async () => {
+    const user = await signUp('Spread', 'spread@example.com')
+    const areas = ['neck', 'hips', 'calves']
+    let last
+    for (const area of areas.slice(0, REFERRAL_RECENT_SESSIONS)) {
+      const ex = (await user.post('/api/exercises').send(exerciseBody({ title: `Stretch ${area}`, targetArea: area }))).body.exercise
+      last = await save(user, ex, { score: 10 })
+    }
+    assert.equal(last.body.referral, null)
+  })
+
+  test('flags persistent high fatigue even when the scores are fine', async () => {
+    const user = await signUp('Tired', 'tired@example.com')
+    const ex = (await user.post('/api/exercises').send(exerciseBody({ title: 'Hamstring reach', targetArea: 'hamstrings' }))).body.exercise
+    let last
+    for (let i = 0; i < REFERRAL_RECENT_SESSIONS; i += 1) last = await save(user, ex, { score: 85, fatigue: REFERRAL_HIGH_FATIGUE })
+    assert.equal(last.body.referral.reason, 'high_fatigue')
+    assert.ok(last.body.referral.therapist.areas.includes('hamstrings'))
+  })
+
+  test('falls back to a general therapist when no specialist matches', async () => {
+    await Therapist.updateMany({ areas: 'lower_back' }, { $pull: { areas: 'lower_back' } })
+    const user = await signUp('Backache', 'backache@example.com')
+    const ex = (await user.post('/api/exercises').send(exerciseBody({ title: 'Cat cow', targetArea: 'lower_back' }))).body.exercise
+    let last
+    for (let i = 0; i < REFERRAL_RECENT_SESSIONS; i += 1) last = await save(user, ex, { score: 5 })
+    assert.equal(last.body.referral.reason, 'low_scores')
+    assert.deepEqual(last.body.referral.therapist.areas, [])
+  })
+
+  test('referralReason needs a full window', () => {
+    assert.equal(referralReason([{ score: 1 }]), null)
+    const full = Array.from({ length: REFERRAL_RECENT_SESSIONS }, () => ({ score: 1, fatigue: null }))
+    assert.equal(referralReason(full), 'low_scores')
+  })
+})
+
+describe('performance data', () => {
+  test('stores the perf summary and reports Server-Timing', async () => {
+    const user = await signUp('Perf', 'perf@example.com')
+    const ex = (await user.post('/api/exercises').send(exerciseBody({ title: 'Perf stretch' }))).body.exercise
+    const perf = {
+      frames: 1790,
+      seconds: 60,
+      fps: 29.8,
+      latencyMs: { avg: 41.2, min: 20.1, max: 140.3, p95: 63.9 },
+      processMs: { avg: 18.4, min: 9.9, max: 120.5, p95: 27.1 },
+      droppedPct: 1.2,
+      noPosePct: 0.4,
+      overBudgetPct: 2.1,
+      injectedDelays: 3,
+      outOfOrderFrames: 0,
+    }
+    const res = await user.post(`/api/exercises/${ex.id}/sessions`).send({ score: 80, perf })
+    assert.equal(res.status, 201)
+    assert.deepEqual(res.body.session.perf, perf)
+    assert.match(res.headers['server-timing'], /^app;dur=\d+(\.\d)?$/)
+
+    const bad = await user.post(`/api/exercises/${ex.id}/sessions`).send({ score: 80, perf: { droppedPct: 140 } })
+    assert.equal(bad.status, 422)
   })
 })

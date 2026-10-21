@@ -3,12 +3,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import DifficultyBadge from '../components/DifficultyBadge.jsx'
 import { InputError, InputLabel, PrimaryButton } from '../components/forms.jsx'
 import Icon from '../components/Icon.jsx'
-import { api } from '../lib/api.js'
+import PerfPanel from '../components/PerfPanel.jsx'
+import ReferralCard from '../components/ReferralCard.jsx'
+import { api, apiTimings } from '../lib/api.js'
 import { areaLabel, hasPlayableVideo, highlightsHands, instructionSteps } from '../lib/enums.js'
 import { on } from '../lib/eventBus.js'
 import { useFetch, useForm, usePageTitle } from '../lib/hooks.js'
 import { thumbnailFor } from '../lib/media.js'
-import { FATIGUE_LABELS, toSessionMetrics } from '../lib/sessionMetrics.js'
+import { FATIGUE_LABELS, toPerfPayload, toSessionMetrics } from '../lib/sessionMetrics.js'
 import { card, container, label as labelClass, sectionTitle, statLabel, textarea } from '../lib/ui.js'
 import PoseStage from '../pose/PoseStage.jsx'
 import NotFound from './NotFound.jsx'
@@ -25,6 +27,10 @@ function ScoreForm({ exercise }) {
   const [auto, setAuto] = useState(false)
   const [summary, setSummary] = useState(null)
   const [fatigue, setFatigue] = useState(null)
+  // ?perf runs: the tracker's full log, and the saved session (the page stays open so the
+  // save's response time can go into the downloaded log).
+  const [perfLog, setPerfLog] = useState(null)
+  const [saved, setSaved] = useState(null)
   const section = useRef(null)
 
   useEffect(
@@ -32,6 +38,8 @@ function ScoreForm({ exercise }) {
       on('session-ended', (detail) => {
         setSeconds(detail.seconds)
         setSummary(detail.summary ?? null)
+        setPerfLog(detail.perfLog ?? null)
+        setSaved(null)
         setAuto(detail.score != null)
         if (detail.score != null) setScore(detail.score)
         setOpen(true)
@@ -50,15 +58,21 @@ function ScoreForm({ exercise }) {
   const submit = (event) => {
     event.preventDefault()
     form.submit(async ({ notes }) => {
-      const { message } = await api.post(`/exercises/${exercise.id}/sessions`, {
+      const { session, referral, message } = await api.post(`/exercises/${exercise.id}/sessions`, {
         score,
         durationSeconds: seconds,
         notes,
         // The camera results, in the names the API stores them under.
         ...toSessionMetrics(summary),
         ...(fatigue == null ? {} : { fatigue }),
+        ...(perfLog ? { perf: toPerfPayload(perfLog.summary) } : {}),
       })
-      navigate('/dashboard', { state: { flash: message } })
+      if (perfLog) {
+        setSaved({ sessionId: session.id, referral, message, timing: apiTimings().at(-1) ?? null })
+        return
+      }
+      // When the referral threshold was met, the session page shows the therapist's contact.
+      navigate(referral ? `/sessions/${session.id}` : '/dashboard', { state: { flash: message } })
     })
   }
 
@@ -136,83 +150,104 @@ function ScoreForm({ exercise }) {
           </div>
         )}
 
-        <form onSubmit={submit} className={`space-y-6 ${summary ? '' : 'lg:col-span-2'}`}>
-          <div>
-            <div className="flex items-end justify-between">
-              <InputLabel htmlFor="score" value="Form score" />
-              <span className="text-3xl font-black italic tracking-tighter tabular-nums text-accent">{score ?? '—'}</span>
+        {saved ? (
+          <div className={`space-y-3 ${summary ? '' : 'lg:col-span-2'}`} role="status">
+            <p className="font-bold">{saved.message}</p>
+            <Link to={`/sessions/${saved.sessionId}`} className="text-sm font-bold text-accent hover:underline">
+              Open the saved session
+            </Link>
+          </div>
+        ) : (
+          <form onSubmit={submit} className={`space-y-6 ${summary ? '' : 'lg:col-span-2'}`}>
+            <div>
+              <div className="flex items-end justify-between">
+                <InputLabel htmlFor="score" value="Form score" />
+                <span className="text-3xl font-black italic tracking-tighter tabular-nums text-accent">{score ?? '—'}</span>
+              </div>
+              <p className="text-[13px] text-slate-500">How well did you hold the form? 0 = couldn&apos;t do it, 100 = perfect.</p>
+              {auto && <p className="text-[13px] font-semibold text-accent">Suggested from your camera tracking. You can adjust it before saving.</p>}
+              <input
+                id="score"
+                name="score"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={score ?? 50}
+                onChange={(event) => setScore(Number(event.target.value))}
+                className="mt-3 w-full accent-emerald-700"
+              />
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>0</span>
+                <span>50</span>
+                <span>100</span>
+              </div>
+              <InputError messages={form.errors.score} className="mt-2" />
+              <InputError messages={form.errors.durationSeconds} className="mt-2" />
             </div>
-            <p className="text-[13px] text-slate-500">How well did you hold the form? 0 = couldn&apos;t do it, 100 = perfect.</p>
-            {auto && <p className="text-[13px] font-semibold text-accent">Suggested from your camera tracking. You can adjust it before saving.</p>}
-            <input
-              id="score"
-              name="score"
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={score ?? 50}
-              onChange={(event) => setScore(Number(event.target.value))}
-              className="mt-3 w-full accent-emerald-700"
-            />
-            <div className="flex justify-between text-xs text-slate-500">
-              <span>0</span>
-              <span>50</span>
-              <span>100</span>
+
+            <div>
+              <p className={labelClass}>How tired do you feel?</p>
+              <p className="text-[13px] text-slate-500">Optional. Your own rating of how tired your body felt at the end.</p>
+              <div role="group" aria-label="Fatigue rating" className="mt-3 flex gap-2">
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setFatigue(fatigue === level ? null : level)}
+                    aria-pressed={fatigue === level}
+                    className={`h-11 flex-1 rounded-xl border text-sm font-bold tabular-nums transition-colors ${
+                      fatigue === level
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50'
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[13px] text-slate-500">
+                {fatigue == null ? 'Not set' : `${fatigue} — ${FATIGUE_LABELS[fatigue]}`}
+              </p>
+              <InputError messages={form.errors.fatigue} className="mt-2" />
             </div>
-            <InputError messages={form.errors.score} className="mt-2" />
-            <InputError messages={form.errors.durationSeconds} className="mt-2" />
-          </div>
 
-          <div>
-            <p className={labelClass}>How tired do you feel?</p>
-            <p className="text-[13px] text-slate-500">Optional. Your own rating of how tired your body felt at the end.</p>
-            <div role="group" aria-label="Fatigue rating" className="mt-3 flex gap-2">
-              {[1, 2, 3, 4, 5].map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => setFatigue(fatigue === level ? null : level)}
-                  aria-pressed={fatigue === level}
-                  className={`h-11 flex-1 rounded-xl border text-sm font-bold tabular-nums transition-colors ${
-                    fatigue === level
-                      ? 'border-accent bg-accent text-white'
-                      : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50'
-                  }`}
-                >
-                  {level}
-                </button>
-              ))}
+            <div>
+              <InputLabel htmlFor="notes" value="Notes (optional)" />
+              <textarea
+                id="notes"
+                name="notes"
+                rows={3}
+                maxLength={500}
+                className={`mt-1.5 ${textarea}`}
+                placeholder="e.g. Left side felt tighter than the right."
+                {...form.bind('notes')}
+              />
+              <InputError messages={form.errors.notes} className="mt-2" />
             </div>
-            <p className="mt-2 text-[13px] text-slate-500">
-              {fatigue == null ? 'Not set' : `${fatigue} — ${FATIGUE_LABELS[fatigue]}`}
-            </p>
-            <InputError messages={form.errors.fatigue} className="mt-2" />
-          </div>
 
-          <div>
-            <InputLabel htmlFor="notes" value="Notes (optional)" />
-            <textarea
-              id="notes"
-              name="notes"
-              rows={3}
-              maxLength={500}
-              className={`mt-1.5 ${textarea}`}
-              placeholder="e.g. Left side felt tighter than the right."
-              {...form.bind('notes')}
-            />
-            <InputError messages={form.errors.notes} className="mt-2" />
-          </div>
+            <InputError messages={form.errors._form} />
 
-          <InputError messages={form.errors._form} />
-
-          <div className="flex justify-end">
-            <PrimaryButton size="lg" disabled={form.processing}>
-              Save session
-            </PrimaryButton>
-          </div>
-        </form>
+            <div className="flex justify-end">
+              <PrimaryButton size="lg" disabled={form.processing}>
+                Save session
+              </PrimaryButton>
+            </div>
+          </form>
+        )}
       </div>
+
+      {saved?.referral && (
+        <div className="mt-6">
+          <ReferralCard referral={saved.referral} />
+        </div>
+      )}
+
+      {perfLog && (
+        <div className="mt-6">
+          <PerfPanel log={perfLog} saved={saved} title={exercise.title} />
+        </div>
+      )}
     </section>
   )
 }

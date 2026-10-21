@@ -7,6 +7,7 @@ import mongoose from 'mongoose'
 import { pathToFileURL } from 'node:url'
 import { Exercise } from '../models/Exercise.js'
 import { StretchSession } from '../models/StretchSession.js'
+import { Therapist } from '../models/Therapist.js'
 import { User } from '../models/User.js'
 
 export const DEMO_EMAIL = 'demo@juststretch.test'
@@ -216,6 +217,48 @@ function seedTracking(joints) {
   }
 }
 
+// Sample therapists for the referral feature. These are NOT real people or
+// clinics: replace them with real, consenting contacts before any public use.
+// `placeholder: true` makes the app label them as sample contacts.
+const THERAPISTS = [
+  {
+    name: 'Sample Therapist A',
+    clinic: 'Sample Neck & Shoulder Clinic',
+    areas: ['neck', 'shoulders', 'upper_back', 'chest'],
+    phone: '+63 2 8000 0001',
+    email: 'neck.shoulder@clinic.example.com',
+    address: 'Sample address, Mandaluyong City',
+  },
+  {
+    name: 'Sample Therapist B',
+    clinic: 'Sample Back & Hip Clinic',
+    areas: ['lower_back', 'hips'],
+    phone: '+63 2 8000 0002',
+    email: 'back.hip@clinic.example.com',
+    address: 'Sample address, Pasig City',
+  },
+  {
+    name: 'Sample Therapist C',
+    clinic: 'Sample Sports Rehab Clinic',
+    areas: ['hamstrings', 'quads', 'calves', 'wrists'],
+    phone: '+63 2 8000 0003',
+    email: 'sports.rehab@clinic.example.com',
+    address: 'Sample address, Makati City',
+  },
+  {
+    name: 'Sample Therapist D',
+    clinic: 'Sample General Physical Therapy',
+    areas: [],
+    phone: '+63 2 8000 0004',
+    email: 'general.pt@clinic.example.com',
+    address: 'Sample address, Quezon City',
+  },
+].map((t) => ({ ...t, placeholder: true }))
+
+export async function seedTherapists() {
+  return Therapist.insertMany(THERAPISTS)
+}
+
 async function seedUsers() {
   // One hash reused for every account, like UserFactory's static $password.
   const password = await bcrypt.hash('password', 10)
@@ -298,8 +341,8 @@ export async function seedDatabase() {
   // Fixed seed so every run (and every groupmate's laptop) gets the same data.
   faker.seed(20261016)
 
-  await Promise.all([User.deleteMany({}), Exercise.deleteMany({}), StretchSession.deleteMany({})])
-  await Promise.all([User.init(), Exercise.init(), StretchSession.init()])
+  await Promise.all([User.deleteMany({}), Exercise.deleteMany({}), StretchSession.deleteMany({}), Therapist.deleteMany({})])
+  await Promise.all([User.init(), Exercise.init(), StretchSession.init(), Therapist.init()])
 
   const users = await seedUsers()
   const demo = users.find((u) => u.email === DEMO_EMAIL)
@@ -307,8 +350,9 @@ export async function seedDatabase() {
 
   const exercises = await seedExercises(demo, others)
   await seedSessions(demo, others, exercises)
+  const therapists = await seedTherapists()
 
-  console.log(`[seed] ${users.length} users, ${exercises.length} exercises, ${TOTAL_SESSIONS} sessions. Demo login: ${DEMO_EMAIL} / password`)
+  console.log(`[seed] ${users.length} users, ${exercises.length} exercises, ${TOTAL_SESSIONS} sessions, ${therapists.length} sample therapists. Demo login: ${DEMO_EMAIL} / password`)
 }
 
 // `node src/seed.js` (npm run seed): reset and reseed the database in MONGODB_URI.

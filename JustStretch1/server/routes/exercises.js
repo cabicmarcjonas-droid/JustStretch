@@ -6,6 +6,7 @@ import { forbidden, isValidId, notFound } from '../middleware/errors.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { exerciseSchema, sessionSchema } from '../middleware/schemas.js'
 import { validate } from '../middleware/validate.js'
+import { evaluateReferral } from '../services/referral.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -106,12 +107,20 @@ router.post('/:id/sessions', loadExercise, validate(sessionSchema), async (req, 
     trackingScore: req.body.trackingScore ?? null,
     droppedFrames: req.body.droppedFrames ?? null,
     fatigue: req.body.fatigue ?? null,
+    perf: req.body.perf ?? null,
     completedAt: new Date(),
   })
 
+  // Compare the member's recent sessions in this body area with the referral
+  // threshold. When it is met, the response carries a therapist's contact details.
+  const referral = await evaluateReferral(session, req.exercise)
+
   res.status(201).json({
     session,
-    message: `Session saved for "${req.exercise.title}". Nice work!`,
+    referral,
+    message: referral
+      ? `Session saved for "${req.exercise.title}". We recommend having a physical therapist look at this area.`
+      : `Session saved for "${req.exercise.title}". Nice work!`,
   })
 })
 

@@ -105,9 +105,9 @@ All routes are under `/api`. Errors are JSON; validation failures return `422 { 
 | GET / PUT | `/profile` | The body map (pain areas) and the starting flexibility baseline. PUT changes nothing else about the account |
 | GET / POST | `/exercises` | 9 per page; `search`, `area`, `difficulty`, `page` |
 | GET / PUT / DELETE | `/exercises/:id` | PUT and DELETE are author only |
-| POST | `/exercises/:id/sessions` | Saves a session for the current user, with the camera's tracking results when the exercise has a reference pose |
+| POST | `/exercises/:id/sessions` | Saves a session for the current user, with the camera's tracking results when the exercise has a reference pose. Runs the referral check and returns `referral` (or `null`) |
 | GET | `/sessions` | Own sessions, 15 per page, `exercise` filter |
-| GET | `/sessions/:id` | One session with its per-joint results, owner only |
+| GET | `/sessions/:id` | One session with its per-joint results and referral (therapist contact included), owner only |
 | DELETE | `/sessions/:id` | Owner only |
 | GET | `/dashboard` | Totals, 7-day average, minutes this week (weeks start Monday, Asia/Manila), top area, day streak (Asia/Manila), recent sessions, suggestions |
 
@@ -131,9 +131,41 @@ A session saved with the camera keeps the per-joint tracking results: the averag
 
 Sessions saved before those fields existed cannot have them: the tracker only displayed them, it never stored them, so they show the "no camera tracking data" note. `npm --prefix server run backfill` fills those older sessions with synthetic numbers derived from the score each one already has, so the demo looks complete. **Those numbers are made up, not measurements.** `npm --prefix server run backfill -- --undo` removes them again.
 
+## Therapist referral
+
+After a session is saved, the API looks at the member's last 3 sessions for the same body area (any exercise in that area). If all 3 scored below 50, or all 3 were rated 4 or more on the fatigue scale, the session is flagged and the response carries a physical therapist's contact details. The app then opens the session page, which shows the referral card. The numbers live in `server/shared/referral.js`.
+
+Therapists are not users. The seed adds 4 **sample** therapists (`placeholder: true`, shown as "Sample contact" in the UI). They are not real clinics: replace them with real, consenting contacts before any public use. A database seeded before this feature gets the sample therapists added on the next server start.
+
+To see it in the demo: open any neck stretch, end three sessions in a row with a score under 50, and save each one.
+
+## Performance tests for the paper (Tables 6 and 7, Test Case 2)
+
+Add `?perf` to a session page URL, for example `/exercises/<id>/session?perf`. Then:
+
+- After you press End, a **Performance (test mode)** panel lists latency, frame processing time, FPS, dropped frames, no-pose frames and out-of-order frames against the paper's targets.
+- **Save session** stays on the page and adds the save's response time (round trip, plus the server's own time from its `Server-Timing` header). The perf summary is stored with the session.
+- **Download log (JSON)** saves the summary, every frame (frame ID, camera frame number, timings) and the API timings. **Download frames (CSV)** saves the frame rows for a spreadsheet.
+
+Extra URL options, all used together with `?perf`:
+
+| Option | What it does |
+|---|---|
+| `&trial=60` | Stops the session by itself after 60 seconds, for the 60-second trials |
+| `&delay=100` | Test Case 2: adds a 100 ms delay to frame 150 |
+| `&delayAt=300` | Delays frame 300 instead of 150 |
+| `&delayEvery=90` | Repeats the delay every 90 frames after the first one |
+| `&delayCount=5` | Stops after 5 delays |
+
+Example: `/exercises/<id>/session?perf&trial=60&delay=100&delayEvery=300`.
+
+The angle accuracy check against Blender (paper, 3.3) is not part of this.
+
 ## Privacy
 
 Pose tracking runs entirely in the browser. Camera frames and body landmarks are never sent to the server; only the score, the duration, the optional notes and the tracking results are saved. The tracking results are aggregates, not images: per joint, the average angle error and the share of judged frames the joint stayed inside its margin of error, plus the number of judged frames, the number within the margin, the number of dropped frames and the tracking score.
+
+A session can also carry a referral flag (the reason, the body area and which therapist was shown) and, for `?perf` runs only, timing aggregates such as FPS and latency. Neither contains images or landmarks.
 
 The profile page stores what the member types in themselves: the body areas they marked as painful and their starting flexibility measurements. Nothing about them is inferred from the camera.
 

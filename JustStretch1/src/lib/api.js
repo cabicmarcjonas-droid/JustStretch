@@ -9,7 +9,22 @@ export class ApiError extends Error {
   }
 }
 
+// Round-trip time of recent API calls (paper, Table 6: Response Time, target < 500 ms).
+// `serverMs` is the server's own share, read from its Server-Timing header.
+const MAX_TIMINGS = 200
+const timings = []
+
+export function apiTimings() {
+  return [...timings]
+}
+
+function serverDuration(response) {
+  const match = /dur=([\d.]+)/.exec(response.headers.get('Server-Timing') ?? '')
+  return match ? Number(match[1]) : null
+}
+
 async function request(method, path, body) {
+  const started = performance.now()
   const response = await fetch(`/api${path}`, {
     method,
     credentials: 'same-origin',
@@ -18,6 +33,16 @@ async function request(method, path, body) {
   })
 
   const data = await response.json().catch(() => null)
+
+  timings.push({
+    method,
+    path,
+    status: response.status,
+    ms: Math.round((performance.now() - started) * 10) / 10,
+    serverMs: serverDuration(response),
+    at: new Date().toISOString(),
+  })
+  if (timings.length > MAX_TIMINGS) timings.shift()
 
   if (!response.ok) {
     // Session expired or never existed: let AuthContext clear the user so the

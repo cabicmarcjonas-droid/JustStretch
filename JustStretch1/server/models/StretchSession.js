@@ -1,4 +1,6 @@
 import mongoose from 'mongoose'
+import { BODY_AREA_VALUES } from '../shared/enums.js'
+import { REFERRAL_REASON_VALUES } from '../shared/referral.js'
 import { applyJsonTransform } from './toJSON.js'
 
 // One row per tracked joint: how far off the reference the user was, and how
@@ -8,6 +10,41 @@ const jointResultSchema = new mongoose.Schema(
     joint: { type: String, required: true, maxlength: 40 },
     avgError: { type: Number, required: true, min: 0, max: 180 },
     timeInRangePct: { type: Number, required: true, min: 0, max: 100, validate: Number.isInteger },
+  },
+  { _id: false },
+)
+
+// Set when saving this session met the referral threshold (shared/referral.js).
+const referralSchema = new mongoose.Schema(
+  {
+    reason: { type: String, required: true, enum: REFERRAL_REASON_VALUES },
+    area: { type: String, required: true, enum: BODY_AREA_VALUES },
+    therapist: { type: mongoose.Schema.Types.ObjectId, ref: 'Therapist', default: null },
+    flaggedAt: { type: Date, required: true },
+  },
+  { _id: false },
+)
+
+// Min / average / 95th percentile of one timing, in milliseconds.
+const timingSchema = new mongoose.Schema(
+  { avg: Number, min: Number, max: Number, p95: Number },
+  { _id: false },
+)
+
+// The performance numbers for the paper's Tables 6 and 7, from perfMonitor.js.
+// Only stored when the session ran with ?perf in the URL.
+const perfSchema = new mongoose.Schema(
+  {
+    frames: { type: Number, min: 0 },
+    seconds: { type: Number, min: 0 },
+    fps: { type: Number, min: 0, default: null },
+    latencyMs: { type: timingSchema, default: null },
+    processMs: { type: timingSchema, default: null },
+    droppedPct: { type: Number, min: 0, max: 100, default: null },
+    noPosePct: { type: Number, min: 0, max: 100, default: null },
+    overBudgetPct: { type: Number, min: 0, max: 100, default: null },
+    injectedDelays: { type: Number, min: 0, default: 0 },
+    outOfOrderFrames: { type: Number, min: 0, default: 0 },
   },
   { _id: false },
 )
@@ -27,6 +64,8 @@ const stretchSessionSchema = new mongoose.Schema(
     trackingScore: { type: Number, min: 0, max: 100, default: null, validate: (v) => v === null || Number.isInteger(v) },
     droppedFrames: { type: Number, min: 0, default: null },
     fatigue: { type: Number, min: 1, max: 5, default: null, validate: (v) => v === null || Number.isInteger(v) },
+    referral: { type: referralSchema, default: null },
+    perf: { type: perfSchema, default: null },
     completedAt: { type: Date, required: true },
   },
   { timestamps: true },

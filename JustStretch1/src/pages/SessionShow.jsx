@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import Icon from '../components/Icon.jsx'
+import ReferralCard from '../components/ReferralCard.jsx'
 import ScoreBadge from '../components/ScoreBadge.jsx'
 import Thumbnail from '../components/Thumbnail.jsx'
 import AppLayout from '../layouts/AppLayout.jsx'
@@ -196,6 +197,8 @@ export default function SessionShow() {
             </div>
           </div>
         </section>
+
+        <ReferralCard referral={session.referral} />
 
         <TrackingResults session={session} />
       </div>

@@ -40,3 +40,20 @@ export function toSessionMetrics(summary) {
 export function jointLabel(name) {
   return String(name ?? '').replace(/_/g, ' ')
 }
+
+// The perf summary (perfMonitor.js) in the shape the API stores, for ?perf runs.
+export function toPerfPayload(perf) {
+  if (!perf) return null
+  return {
+    frames: perf.frames,
+    seconds: perf.seconds,
+    fps: perf.fps?.overall ?? null,
+    latencyMs: perf.latencyMs ?? null,
+    processMs: perf.processMs ?? null,
+    droppedPct: perf.droppedPct ?? null,
+    noPosePct: perf.noPosePct ?? null,
+    overBudgetPct: perf.overBudgetPct ?? null,
+    injectedDelays: perf.injectedDelays ?? 0,
+    outOfOrderFrames: perf.outOfOrderFrames ?? 0,
+  }
+}

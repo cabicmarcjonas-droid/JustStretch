@@ -4,6 +4,7 @@ import { Exercise } from '../models/Exercise.js'
 import { StretchSession } from '../models/StretchSession.js'
 import { forbidden, isValidId, notFound } from '../middleware/errors.js'
 import { requireAuth } from '../middleware/requireAuth.js'
+import { referralMessage } from '../shared/referral.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -83,11 +84,16 @@ router.get('/', async (req, res) => {
 // One session with its tracking results, for the session detail page.
 router.get('/:id', async (req, res) => {
   if (!isValidId(req.params.id)) return notFound(res)
-  const session = await StretchSession.findById(req.params.id).populate('exercise', 'title targetArea videoUrl')
+  const session = await StretchSession.findById(req.params.id)
+    .populate('exercise', 'title targetArea videoUrl')
+    .populate('referral.therapist')
   if (!session) return notFound(res)
   if (String(session.user) !== String(req.user._id)) return forbidden(res)
 
-  res.json({ session })
+  // The referral message is built here so the wording stays in one place (shared/referral.js).
+  const json = session.toJSON()
+  if (json.referral) json.referral.message = referralMessage(json.referral.reason)
+  res.json({ session: json })
 })
 
 router.delete('/:id', async (req, res) => {

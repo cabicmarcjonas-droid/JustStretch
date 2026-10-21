@@ -65,6 +65,31 @@ const jointResultSchema = z.object({
   timeInRangePct: intField('time in range percentage', { min: 0, max: 100 }),
 })
 
+// avg / min / max / p95 of one timing, in milliseconds.
+const timingStats = z
+  .object({
+    avg: numberField('average', { min: 0, max: 60000, optional: true }),
+    min: numberField('minimum', { min: 0, max: 60000, optional: true }),
+    max: numberField('maximum', { min: 0, max: 60000, optional: true }),
+    p95: numberField('95th percentile', { min: 0, max: 60000, optional: true }),
+  })
+  .nullish()
+
+const pct = (label) => numberField(label, { min: 0, max: 100, optional: true })
+
+const perfSchema = z.object({
+  frames: intField('perf frames', { min: 0, max: 1000000, optional: true }),
+  seconds: numberField('perf seconds', { min: 0, max: 7200, optional: true }),
+  fps: numberField('fps', { min: 0, max: 1000, optional: true }),
+  latencyMs: timingStats,
+  processMs: timingStats,
+  droppedPct: pct('dropped percentage'),
+  noPosePct: pct('no pose percentage'),
+  overBudgetPct: pct('over budget percentage'),
+  injectedDelays: intField('injected delays', { min: 0, max: 100000, optional: true }),
+  outOfOrderFrames: intField('out of order frames', { min: 0, max: 1000000, optional: true }),
+})
+
 export const sessionSchema = z
   .object({
     score: intField('score', { min: 0, max: 100 }),
@@ -81,6 +106,8 @@ export const sessionSchema = z
     trackingScore: intField('tracking score', { min: 0, max: 100, optional: true }),
     droppedFrames: intField('dropped frames', { min: 0, max: 100000, optional: true }),
     fatigue: intField('fatigue', { min: 1, max: 5, optional: true }),
+    // Performance numbers from perfMonitor.js, sent only in ?perf mode.
+    perf: perfSchema.nullish(),
   })
   .superRefine((data, ctx) => {
     // Frames within the margin are a subset of the judged frames.

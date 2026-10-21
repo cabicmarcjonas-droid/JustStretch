@@ -6,8 +6,32 @@
 //
 // The tracker calls record() once per processed frame and summary() when the session ends.
 // Open the session page with ?perf in the URL to also see a line per second in the console.
+//
+// Every frame is also kept as a row (frame ID, camera frame number, timings), so a trial
+// can be exported with exportLog() / framesCsv() for the results chapter, and the Test
+// Case 2 delay checks (out-of-order frames, frames dropped during an injected delay,
+// recovery below the latency target) are worked out from those rows.
  
 const round = (n, digits = 1) => Math.round(n * 10 ** digits) / 10 ** digits
+
+// Table 7 target: latency under 100 ms. Used to decide when a frame has recovered
+// after an injected delay.
+export const LATENCY_TARGET_MS = 100
+
+// Column order of the CSV export.
+const CSV_COLUMNS = [
+  'frameId',
+  'sourceFrame',
+  'tMs',
+  'inferenceMs',
+  'processMs',
+  'latencyMs',
+  'fromCapture',
+  'poseFound',
+  'dropped',
+  'injectedMs',
+  'warmup',
+]
  
 function stats(values) {
   if (!values.length) return null
@@ -24,6 +48,15 @@ function stats(values) {
   return { avg: round(sum / values.length), min: round(min), max: round(max), p95: round(p95) }
 }
  
+// The per-frame rows as CSV, one line per frame.
+export function framesToCsv(rows) {
+  const lines = [CSV_COLUMNS.join(',')]
+  for (const row of rows) {
+    lines.push(CSV_COLUMNS.map((key) => (row[key] === null || row[key] === undefined ? '' : String(row[key]))).join(','))
+  }
+  return `${lines.join('\n')}\n`
+}
+
 export class PerfMonitor {
   /**
    * @param {object} options
@@ -58,6 +91,14 @@ export class PerfMonitor {
     this.noPose = 0
     this.overBudget = 0
     this.emaProcessMs = 0 // smoothed processing time, used by the tracker to back off
+    // Per-frame rows for the export, warm-up frames included (marked).
+    this.rows = []
+    this.firstAt = null
+    this.lastFrameId = null
+    this.lastSourceFrame = null
+    this.outOfOrder = 0
+    this.injections = [] // one entry per injected delay, filled in by the frames after it
+    this.openInjections = [] // injections still waiting for their latency to recover
   }
  
   /**
@@ -70,10 +111,27 @@ export class PerfMonitor {
    * @param {number|null} sample.dropped Camera frames skipped since the previous processed frame;
    *                                     null when the browser cannot tell.
    * @param {number} sample.now          performance.now() at the end of the frame.
+   * @param {number} [sample.frameId]    Sequential ID of the processed frame (1, 2, 3...).
+   * @param {number|null} [sample.sourceFrame] The camera's own frame number, when the browser
+   *                                     reports one (requestVideoFrameCallback presentedFrames).
+   * @param {number} [sample.injectedMs] Synthetic delay added to this frame (Test Case 2), or 0.
    */
-  record({ inferenceMs, processMs, latencyMs, fromCapture, poseFound, dropped, now = performance.now() }) {
+  record({
+    inferenceMs,
+    processMs,
+    latencyMs,
+    fromCapture,
+    poseFound,
+    dropped,
+    now = performance.now(),
+    frameId = this.seen + 1,
+    sourceFrame = null,
+    injectedMs = 0,
+  }) {
     this.seen += 1
-    if (this.seen <= this.warmupFrames) return
+    const warmup = this.seen <= this.warmupFrames
+    this.trackFrame({ frameId, sourceFrame, inferenceMs, processMs, latencyMs, fromCapture, poseFound, dropped, injectedMs, warmup, now })
+    if (warmup) return
  
     if (this.startedAt === null) {
       this.startedAt = now
@@ -111,6 +169,89 @@ export class PerfMonitor {
     }
   }
  
+  // Frame IDs, the export row and the Test Case 2 bookkeeping. Runs for warm-up frames too,
+  // so an injected delay is never missed.
+  trackFrame({ frameId, sourceFrame, inferenceMs, processMs, latencyMs, fromCapture, poseFound, dropped, injectedMs, warmup, now }) {
+    if (this.firstAt === null) this.firstAt = now
+
+    // A result is out of order if its frame is not newer than the one drawn before it.
+    const olderId = this.lastFrameId !== null && frameId <= this.lastFrameId
+    const olderSource = sourceFrame !== null && this.lastSourceFrame !== null && sourceFrame <= this.lastSourceFrame
+    if (olderId || olderSource) this.outOfOrder += 1
+    this.lastFrameId = frameId
+    if (sourceFrame !== null) this.lastSourceFrame = sourceFrame
+
+    if (this.rows.length < this.maxSamples) {
+      this.rows.push({
+        frameId,
+        sourceFrame,
+        tMs: round(now - this.firstAt),
+        inferenceMs: round(inferenceMs, 2),
+        processMs: round(processMs, 2),
+        latencyMs: round(latencyMs, 2),
+        fromCapture: Boolean(fromCapture),
+        poseFound: Boolean(poseFound),
+        dropped: dropped ?? null,
+        injectedMs: round(injectedMs, 1),
+        warmup,
+      })
+    }
+
+    // Frames after an injected delay: the first one reports how many camera frames were
+    // skipped while the delay ran, and the first one back under the latency target closes it.
+    for (const open of this.openInjections) {
+      if (open.nextFrameId === null) {
+        open.nextFrameId = frameId
+        open.droppedAfter = dropped ?? null
+        open.nextLatencyMs = round(latencyMs)
+      }
+      open.framesAfter += 1
+      if (latencyMs < LATENCY_TARGET_MS && open.framesToRecover === null) open.framesToRecover = open.framesAfter
+    }
+    this.openInjections = this.openInjections.filter((open) => open.framesToRecover === null)
+
+    if (injectedMs > 0) {
+      const entry = {
+        frameId,
+        sourceFrame,
+        injectedMs: round(injectedMs),
+        processMs: round(processMs),
+        latencyMs: round(latencyMs),
+        nextFrameId: null,
+        droppedAfter: null,
+        nextLatencyMs: null,
+        framesAfter: 0,
+        framesToRecover: null,
+      }
+      this.injections.push(entry)
+      this.openInjections.push(entry)
+    }
+  }
+
+  // Test Case 2 results: one line per injected delay.
+  delayTest() {
+    return this.injections.map(({ framesAfter, ...entry }) => ({
+      ...entry,
+      // Recovered = some later frame got back under the latency target.
+      recovered: entry.framesToRecover !== null,
+      framesObserved: framesAfter,
+    }))
+  }
+
+  // Everything about this run, for the "Download log" button.
+  exportLog(meta = {}) {
+    return {
+      meta: { exportedAt: new Date().toISOString(), budgetMs: this.budgetMs, latencyTargetMs: LATENCY_TARGET_MS, ...meta },
+      summary: this.summary(),
+      delayTest: this.delayTest(),
+      frames: this.rows,
+    }
+  }
+
+  framesCsv() {
+    return framesToCsv(this.rows)
+  }
+
   summary() {
     const total = this.frames
     const seconds = this.startedAt === null ? 0 : (this.lastAt - this.startedAt) / 1000
@@ -141,6 +282,11 @@ export class PerfMonitor {
       droppedPct: known && total ? round((100 * this.dropped) / (total + this.dropped)) : null,
       noPosePct: total ? round((100 * this.noPose) / total) : null,
       warmupFramesIgnored: Math.min(this.seen, this.warmupFrames),
+      // Test Case 2: results drawn from a frame no newer than the previous one (should be 0),
+      // and how many synthetic delays were injected.
+      outOfOrderFrames: this.outOfOrder,
+      injectedDelays: this.injections.length,
+      framesLogged: this.rows.length,
     }
   }
 }
