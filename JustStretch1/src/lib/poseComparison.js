@@ -25,7 +25,7 @@ export function poseUrlFromVideo(videoUrl) {
 }
  
 // Fetch a reference file. Returns null when there is no file for the exercise
-// (only 4 of the exercises have one), so the page can fall back to the slider.
+// (only the bundled exercises have one), so the page can fall back to the slider.
 export async function loadReference(url, minRangeDeg = 10) {
   try {
     const res = await fetch(url);

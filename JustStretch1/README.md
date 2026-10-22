@@ -61,9 +61,9 @@ The API reads `MONGODB_URI` from `server/.env` (copy `server/.env.example` to `s
 
 Other seeded accounts (same password): `miguel.estallo@example.net`, `rene.baterbonia@gmail.com`, and 7 generated users.
 
-The demo user owns *Neck Side Tilt*, *Doorway Chest Stretch* and *Figure-Four Hip Stretch*, so edit/delete can be shown. Every other exercise belongs to someone else: open its `/exercises/<id>/edit` page to see the 403 page. Exercise ids are Mongo ids that change on every seed, so open the exercise from the library and add `/edit` to the address.
+The demo user owns *Neck Side Tilt*, *Overhead Side Bend* and *Standing Torso Twist*, so edit/delete can be shown. Every other exercise belongs to someone else: open its `/exercises/<id>/edit` page to see the 403 page. Exercise ids are Mongo ids that change on every seed, so open the exercise from the library and add `/edit` to the address.
 
-Four exercises have a reference video and pose file and are scored by the camera: *Neck Side Tilt*, *Cross-Body Shoulder Stretch*, *Overhead Side Bend* and *Standing Hamstring Reach* (the last one is filmed from the side, so stand side-on to the camera). Every other exercise falls back to the self-rated score slider.
+The six exercises in the library each have a reference video and pose file and are scored by the camera: *Neck Side Tilt*, *Shoulder Rolls*, *Cross-Body Shoulder Stretch*, *Overhead Side Bend*, *Standing Torso Twist* and *Standing Windmill Arms*. An exercise added by a member without a video falls back to the self-rated score slider.
 
 ## Scripts
 
