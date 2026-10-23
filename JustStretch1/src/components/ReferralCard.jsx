@@ -11,7 +11,7 @@ export default function ReferralCard({ referral }) {
   const { therapist } = referral
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[#e9c98f] bg-surface" role="alert" aria-labelledby="referral-title">
+    <section className="overflow-hidden rounded-lg border border-caution-line bg-surface" role="alert" aria-labelledby="referral-title">
       <div className="flex gap-3 bg-caution-soft px-5 py-4 text-caution">
         <Icon name="warn" className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={1.8} />
         <div className="min-w-0">

@@ -41,7 +41,7 @@ function PasswordField({ id, ...props }) {
       id={id}
       type={shown ? 'text' : 'password'}
       aside={
-        <button type="button" onClick={() => setShown((v) => !v)} className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-accent hover:text-accent-dark">
+        <button type="button" onClick={() => setShown((v) => !v)} className="text-[13px] font-medium text-accent hover:text-accent-dark">
           {shown ? 'Hide' : 'Show'}
         </button>
       }
@@ -206,7 +206,7 @@ function BrandPanel({ view, onToggle }) {
             <img src="/thumbs/neck_side_tilt.jpg" alt="" className="h-full w-full object-cover" />
           </div>
           <div className="flex items-center justify-between bg-white/5 px-3 py-2">
-            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-white/60">Form score</span>
+            <span className="text-[13px] font-medium text-white/60">Form score</span>
             <span className="font-mono text-sm font-medium">86 / 100</span>
           </div>
         </div>
@@ -239,7 +239,7 @@ const LoginPage = ({ initialView = 'login' }) => {
   const toggleView = () => setActiveView(activeView === 'login' ? 'register' : 'login')
 
   return (
-    <section className="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-8">
+    <section className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-8">
       <div className="relative w-full max-w-[880px] overflow-hidden rounded-lg border border-line bg-surface sm:h-[620px]">
         <BrandPanel view={activeView} onToggle={toggleView} />
         <RegisterForm active={activeView === 'register'} onToggle={toggleView} />

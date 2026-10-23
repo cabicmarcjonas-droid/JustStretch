@@ -72,9 +72,11 @@ export default function ExerciseShow() {
         <div>
           <h1 className={pageTitle}>{exercise.title}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-2">
-            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-accent">{area}</span>
+            <span className="text-[13px] font-medium text-accent">{area}</span>
             <DifficultyBadge difficulty={exercise.difficulty} />
-            <span className="font-mono">{exercise.durationMinutes} min</span>
+            <span>
+              <span className="font-mono">{exercise.durationMinutes}</span> min
+            </span>
             <span className="font-mono">
               {sets} {plural('set', sets)} × {reps} {plural('rep', reps)}
             </span>
@@ -82,7 +84,7 @@ export default function ExerciseShow() {
               <span className="flex h-6 w-6 items-center justify-center rounded-md bg-paper-2 font-mono text-[10px] text-ink-2">
                 {initials(exercise.author.name)}
               </span>
-              Added by {isAuthor ? 'you' : exercise.author.name} · {formatDate(exercise.createdAt)}
+              Added by {isAuthor ? 'you' : exercise.author.name} on {formatDate(exercise.createdAt)}
             </span>
           </div>
         </div>
@@ -141,7 +143,7 @@ export default function ExerciseShow() {
               )}
               {exercise.precautions && (
                 <section className="overflow-hidden rounded-lg border border-caution/40 bg-caution-soft" role="note">
-                  <h2 className="flex items-center gap-2 border-b border-caution/30 px-5 py-3.5 font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-caution">
+                  <h2 className="flex items-center gap-2 border-b border-caution/30 px-5 py-3.5 text-[13px] font-medium text-caution">
                     <Icon name="warn" className="h-4 w-4" />
                     Precautions
                   </h2>

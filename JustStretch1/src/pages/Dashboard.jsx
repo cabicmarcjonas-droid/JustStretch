@@ -78,7 +78,7 @@ function DashboardBody({ data, painAreas }) {
       <section className={`${card} grid grid-cols-2 gap-px overflow-hidden bg-line lg:grid-cols-4`} aria-label="Your stats">
         <Vital label="Total sessions" value={totalSessions} note="All time" />
         <Vital
-          label="Avg. score · 7 days"
+          label="Avg. score (7 days)"
           value={averageScore ?? '—'}
           note={
             delta == null ? (
@@ -149,7 +149,7 @@ function DashboardBody({ data, painAreas }) {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-medium">{exercise.title}</span>
                       <span className={statLabel}>
-                        {areaLabel(exercise.targetArea)} · {exercise.durationMinutes} min
+                        {areaLabel(exercise.targetArea)}, {exercise.durationMinutes} min
                       </span>
                     </span>
                     <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-muted" />
@@ -166,7 +166,7 @@ function DashboardBody({ data, painAreas }) {
 
 function SessionLog({ sessions }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-line text-left">
@@ -213,7 +213,7 @@ function SuggestedNext({ exercise, matchesPainArea }) {
     <article className={`${card} grid overflow-hidden md:grid-cols-[1fr_1.1fr]`}>
       <Thumbnail videoUrl={exercise.videoUrl} label className="aspect-video md:aspect-auto md:min-h-64" />
       <div className="flex flex-col p-5 sm:p-6">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-accent">Suggested next</p>
+        <p className="text-[13px] font-medium text-accent">Suggested next</p>
         <h2 className="mt-1.5 text-[24px] font-semibold leading-tight tracking-[-0.02em]">{exercise.title}</h2>
         <div className="mt-2">
           <DifficultyBadge difficulty={exercise.difficulty} />
@@ -285,7 +285,7 @@ function Adherence({ streak, days, minutes }) {
                 >
                   <span className="sr-only">{day.active ? 'Stretched' : 'No session'}</span>
                 </span>
-                <span className={`font-mono text-[10px] ${day.date === today ? 'text-ink' : 'text-muted'}`}>{weekdayOf(day.date)}</span>
+                <span className={`text-[11px] ${day.date === today ? 'text-ink' : 'text-muted'}`}>{weekdayOf(day.date)}</span>
               </li>
             ))}
           </ol>

@@ -19,7 +19,7 @@ export default function Team() {
           <img src={person.image} alt="" className="h-14 w-14 shrink-0 rounded-md object-cover" />
           <div className="min-w-0">
             <h3 className="text-[15px] font-semibold leading-snug">{person.name}</h3>
-            <p className="mt-1 font-mono text-[11px] font-medium uppercase leading-snug tracking-[0.04em] text-muted">{person.role}</p>
+            <p className="mt-1 text-[13px] leading-snug text-muted">{person.role}</p>
           </div>
         </li>
       ))}

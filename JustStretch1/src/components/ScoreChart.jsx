@@ -99,7 +99,7 @@ export function TargetLegend() {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted">
       <span className="h-2.5 w-3.5 rounded-sm border border-accent-mid bg-accent-soft" aria-hidden="true" />
-      Target range {TARGET}–{MAX}
+      Target range {TARGET} to {MAX}
     </span>
   )
 }

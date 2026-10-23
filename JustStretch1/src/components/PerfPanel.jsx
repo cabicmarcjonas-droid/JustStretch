@@ -19,7 +19,7 @@ function Row({ metric, target, value, pass }) {
       <td className="py-2 pr-2">{metric}</td>
       <td className="py-2 px-2 text-muted">{target}</td>
       <td className="py-2 px-2 text-right font-semibold tabular-nums">{value}</td>
-      <td className={`py-2 pl-2 text-right text-xs font-semibold uppercase ${tone}`}>{pass === null ? 'n/a' : pass ? 'Pass' : 'Miss'}</td>
+      <td className={`py-2 pl-2 text-right text-xs font-semibold ${tone}`}>{pass === null ? 'n/a' : pass ? 'Pass' : 'Miss'}</td>
     </tr>
   )
 }

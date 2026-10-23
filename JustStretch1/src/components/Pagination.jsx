@@ -33,7 +33,7 @@ export default function Pagination({ meta, perPage, to, noun = 'results' }) {
       <p className="text-sm text-muted">
         Showing{' '}
         <span className="font-medium text-ink">
-          {from}–{upTo}
+          {from} to {upTo}
         </span>{' '}
         of <span className="font-medium text-ink">{total}</span> {noun}
       </p>

@@ -2,7 +2,7 @@
 @plugin "@tailwindcss/forms";
 
 /* Clinical look: cool near-white paper, one deep green accent, IBM Plex Sans with Plex Mono
-   for numbers and labels, 1px rules instead of shadows. Amber marks cautions, red marks
+   for figures, 1px rules instead of shadows. Amber marks cautions, red marks
    destructive actions and low scores. Text colours on their backgrounds pass WCAG AA
    (accent on paper 6.0:1, white on accent 6.2:1, caution on caution-soft 5.0:1). */
 @theme {
@@ -10,9 +10,11 @@
   --color-ink-2: #314041;
   --color-paper: #f8fbfa;
   --color-paper-2: #eef5f3;
-  --color-surface: #ffffff;
+  --color-surface: #fcfefd;
   --color-line: #d9e2e1;
   --color-line-strong: #c2cdcc;
+  /* Form field edges: 3:1 against the surface and the paper (WCAG 1.4.11). */
+  --color-field: #7f8d8c;
   --color-muted: #5f6c6c;
   --color-accent: #086e53;
   --color-accent-dark: #00563f;
@@ -20,7 +22,10 @@
   --color-accent-mid: #83c8ae;
   --color-caution: #935a11;
   --color-caution-soft: #fdeed6;
+  --color-caution-line: #e9c98f;
+  --color-caution-bright: #f2b65c;
   --color-danger: #a83634;
+  --color-danger-dark: #8e2c2a;
   --color-danger-soft: #ffeae8;
   --color-danger-line: #e7b8b6;
 
@@ -35,11 +40,28 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    scrollbar-color: var(--color-line-strong) var(--color-paper);
+  }
+
+  html,
+  body {
+    overflow-x: clip;
+  }
+
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-accent-soft);
+    color: var(--color-ink);
   }
 
   body {
     @apply bg-paper font-sans text-ink antialiased;
-    min-height: 100vh;
+    min-height: 100dvh;
   }
 }
 

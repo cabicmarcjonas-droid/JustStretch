@@ -180,7 +180,7 @@ function BodyAndFlexibilityForm({ profile }) {
                   className="pe-12"
                   {...bind(test.id)}
                 />
-                <span className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 font-mono text-xs text-muted">{test.unit}</span>
+                <span className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-[13px] text-muted">{test.unit}</span>
               </div>
             </div>
           ))}

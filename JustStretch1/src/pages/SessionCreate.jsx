@@ -196,7 +196,7 @@ function ScoreForm({ exercise }) {
                   </span>
                 </div>
 
-                <div className="mt-4 overflow-x-auto">
+                <div className="relative mt-4 overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="text-xs text-muted">
                       <tr>
@@ -296,7 +296,7 @@ function ScoreForm({ exercise }) {
                 ))}
               </div>
               <p className="mt-2 text-[13px] text-muted">
-                {fatigue == null ? 'Not set' : `${fatigue} — ${FATIGUE_LABELS[fatigue]}`}
+                {fatigue == null ? 'Not set' : `${fatigue}: ${FATIGUE_LABELS[fatigue]}`}
               </p>
               <InputError messages={form.errors.fatigue} className="mt-2" />
             </div>
@@ -435,12 +435,12 @@ function SessionBar({ exercise, stopButton }) {
         <div className="min-w-0 flex-1 text-center">
           <p className="truncate text-base font-semibold sm:text-lg">{exercise.title}</p>
           <p className="truncate text-[11px] font-semibold text-muted">
-            {exercise.durationMinutes} min · {exercise.sets ?? 1} {plural('set', exercise.sets ?? 1)} ×{' '}
+            {exercise.durationMinutes} min, {exercise.sets ?? 1} {plural('set', exercise.sets ?? 1)} ×{' '}
             {exercise.repsPerSet ?? 1} {plural('rep', exercise.repsPerSet ?? 1)}
           </p>
         </div>
         <div className="hidden items-center gap-2 sm:flex">
-          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-accent">{areaLabel(exercise.targetArea)}</span>
+          <span className="text-[13px] font-medium text-accent">{areaLabel(exercise.targetArea)}</span>
           <DifficultyBadge difficulty={exercise.difficulty} />
         </div>
       </div>

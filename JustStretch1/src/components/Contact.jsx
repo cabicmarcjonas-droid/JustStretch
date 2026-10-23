@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { btn, card, container, eyebrow, h2, input, label, lede, statLabel, textarea } from '../lib/ui.js'
+import { btn, card, container, h2, input, label, lede, statLabel, textarea } from '../lib/ui.js'
 
 const EMAIL = 'juststretch@gmail.com'
 
@@ -16,8 +16,7 @@ export default function Contact() {
     <section id="contact" className="scroll-mt-20 border-t border-line">
       <div className={`${container} grid gap-10 py-16 sm:py-24 lg:grid-cols-[1fr_600px] lg:gap-16`}>
         <div>
-          <p className={eyebrow}>Contact</p>
-          <h2 className={`mt-3 ${h2}`}>Get in touch.</h2>
+          <h2 className={h2}>Get in touch.</h2>
           <p className={`mt-5 max-w-md ${lede}`}>Questions about JustStretch, or want to work together? Send us a message.</p>
           <dl className="mt-8 max-w-md border-t border-line">
             <div className="flex justify-between gap-4 border-b border-line py-3">
@@ -69,7 +68,7 @@ export default function Contact() {
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-[13px] text-muted">We usually reply within 2 days.</p>
-            <button type="submit" className={`${btn.primary} ${btn.md}`}>
+            <button type="submit" className={`${btn.primary} ${btn.lg}`}>
               Send message
             </button>
           </div>

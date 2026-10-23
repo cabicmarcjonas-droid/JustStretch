@@ -152,7 +152,9 @@ function ExerciseTable({ exercises, isRecommended, userId }) {
               <td className="px-3 py-3">
                 <DifficultyBadge difficulty={exercise.difficulty} />
               </td>
-              <td className="px-3 py-3 text-right font-mono text-ink-2">{exercise.durationMinutes} min</td>
+              <td className="px-3 py-3 text-right text-ink-2">
+                <span className="font-mono">{exercise.durationMinutes}</span> min
+              </td>
               <td className="px-3 py-3">
                 {isLiveScored(exercise) ? <span className={tag.ok}>Live score</span> : <span className={tag.neutral}>Self-rated</span>}
               </td>

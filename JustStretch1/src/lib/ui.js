@@ -16,8 +16,7 @@ export const pageTitle = 'text-[28px] font-semibold leading-tight tracking-[-0.0
 export const displayTitle = 'text-[40px] font-semibold leading-[1.06] tracking-[-0.03em] text-ink sm:text-[56px]'
 export const h2 = 'text-[28px] font-semibold leading-[1.12] tracking-[-0.02em] text-ink sm:text-[40px]'
 export const sectionTitle = 'text-base font-semibold text-ink'
-export const eyebrow = 'font-mono text-xs font-medium uppercase tracking-[0.04em] text-accent'
-export const statLabel = 'font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-muted'
+export const statLabel = 'text-[13px] font-medium text-muted'
 export const lede = 'text-[17px] leading-relaxed text-ink-2'
 export const link = 'font-medium text-accent underline underline-offset-2 hover:text-accent-dark'
 
@@ -32,12 +31,12 @@ export const tag = {
 
 // Buttons. Pair a variant with a size: `${btn.primary} ${btn.lg}`.
 const btnBase =
-  'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-[color,background-color,border-color,transform] duration-150 active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
 export const btn = {
   primary: `${btnBase} bg-accent text-white hover:bg-accent-dark`,
   secondary: `${btnBase} border border-line-strong bg-surface text-ink hover:bg-paper-2`,
   dark: `${btnBase} bg-ink text-white hover:bg-ink-2`,
-  danger: `${btnBase} bg-danger text-white hover:bg-[#8e2c2a]`,
+  danger: `${btnBase} bg-danger text-white hover:bg-danger-dark`,
   dangerOutline: `${btnBase} border border-danger-line bg-surface text-danger hover:bg-danger-soft`,
   ghost: `${btnBase} text-accent hover:bg-accent-soft`,
   sm: 'h-8 px-3 text-sm',
@@ -47,7 +46,7 @@ export const btn = {
 
 // Form controls (used with @tailwindcss/forms).
 const control =
-  'block w-full rounded-md border-line-strong bg-surface text-[15px] text-ink placeholder:text-muted focus:border-accent focus:ring-accent'
+  'block w-full rounded-md border-field bg-surface text-[15px] text-ink placeholder:text-muted focus:border-accent focus:ring-accent'
 export const input = `${control} h-11 px-3`
 export const select = `${control} h-11 pl-3 pr-9`
 export const textarea = `${control} px-3 py-2.5`

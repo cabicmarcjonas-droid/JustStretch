@@ -53,7 +53,7 @@ export default function Modal({ show, onClose, maxWidth = '2xl', children }) {
 
   return (
     <div className="fixed inset-0 overflow-y-auto px-4 py-6 sm:px-0 z-50" role="dialog" aria-modal="true">
-      <div className="fixed inset-0 transform transition-all" onClick={onClose}>
+      <div className="fixed inset-0" onClick={onClose}>
         <div className="absolute inset-0 bg-ink/50" />
       </div>
 

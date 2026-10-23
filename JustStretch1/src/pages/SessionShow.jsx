@@ -27,7 +27,7 @@ function Vital({ label, value, note, small = false }) {
 // it stayed inside its margin of error.
 function JointTable({ joints }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="border-b border-line">
           <tr>
@@ -71,7 +71,7 @@ function TrackingResults({ session }) {
       <div className={`${cardHead} flex flex-wrap items-center justify-between gap-3`}>
         <h2 className={sectionTitle}>Tracking results</h2>
         {hasTracking && (
-          <p className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-ink-2">
+          <p className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-ink-2">
             <span>{judged ?? '—'} frames judged</span>
             <span>{within ?? '—'} within margin</span>
             {dropped > 0 && <span>{dropped} dropped</span>}
@@ -147,9 +147,11 @@ export default function SessionShow() {
         <h1 className={pageTitle}>{exercise ? exercise.title : 'Deleted exercise'}</h1>
         <ScoreBadge score={session.score} />
       </div>
-      <p className="mt-1.5 font-mono text-xs uppercase tracking-[0.04em] text-muted">
-        {exercise ? `${areaLabel(exercise.targetArea)} · ` : ''}
-        {formatDateLong(session.completedAt)} · {formatTime(session.completedAt)}
+      <p className="mt-1.5 flex flex-wrap gap-x-4 text-sm text-muted">
+        {exercise && <span>{areaLabel(exercise.targetArea)}</span>}
+        <span>
+          {formatDateLong(session.completedAt)}, {formatTime(session.completedAt)}
+        </span>
       </p>
     </>
   )

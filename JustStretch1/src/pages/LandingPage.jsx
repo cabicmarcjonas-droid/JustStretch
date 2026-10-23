@@ -4,7 +4,7 @@ import Contact from '../components/Contact.jsx'
 import Icon from '../components/Icon.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import PublicLayout from '../layouts/PublicLayout.jsx'
-import { btn, card, container, displayTitle, eyebrow, h2, lede, link, statLabel } from '../lib/ui.js'
+import { btn, card, container, displayTitle, h2, lede, link, statLabel } from '../lib/ui.js'
 
 // Example values for the hero readout. They show what a session looks like, not anyone's data.
 const READOUT = [
@@ -36,9 +36,8 @@ function Readout() {
           <span className="text-[15px] font-semibold">Neck Side Tilt</span>
           <span className={statLabel}>Step 2 of 4</span>
         </p>
-        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-accent">
-          <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
-          Live · 01:24
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-accent">
+          Live <span className="font-mono">01:24</span>
         </span>
       </div>
       <div className="flex gap-4 p-4">
@@ -50,7 +49,7 @@ function Readout() {
                 <th className={`${statLabel} pb-2 font-medium`}>Joint</th>
                 <th className={`${statLabel} pb-2 text-right font-medium`}>Meas.</th>
                 <th className={`${statLabel} pb-2 text-right font-medium`}>Target</th>
-                <th className={`${statLabel} hidden pb-2 pl-3 font-medium sm:table-cell`}>Deviation · ±{TOLERANCE}°</th>
+                <th className={`${statLabel} hidden pb-2 pl-3 font-medium sm:table-cell`}>Deviation (±{TOLERANCE}°)</th>
               </tr>
             </thead>
             <tbody>
@@ -99,14 +98,14 @@ function AngleDiagram() {
       <circle cx="280" cy="196" r="7" className="fill-accent" stroke="#fff" strokeWidth="2" />
       <circle cx="150" cy="200" r="5" className="fill-ink-2" />
       <circle cx="410" cy="200" r="5" className="fill-ink-2" />
-      <text x="96" y="104" className="fill-accent font-mono text-[13px]">
-        MEASURED 31°
+      <text x="96" y="104" className="fill-accent text-[14px]">
+        Measured 31°
       </text>
-      <text x="352" y="128" className="fill-ink-2 font-mono text-[13px]">
-        TARGET 35°
+      <text x="352" y="128" className="fill-ink-2 text-[14px]">
+        Target 35°
       </text>
-      <text x="80" y="282" className="fill-muted font-mono text-[12px]">
-        NECK TILT · TOLERANCE ±10° · IN RANGE
+      <text x="80" y="282" className="fill-muted text-[13px]">
+        Neck tilt within the ±10° tolerance: in range
       </text>
     </svg>
   )
@@ -115,7 +114,7 @@ function AngleDiagram() {
 function FlowBox({ title, items, highlight = false }) {
   return (
     <div className={`min-w-0 flex-1 rounded-md border p-4 ${highlight ? 'border-accent-mid bg-accent-soft' : 'border-line bg-paper'}`}>
-      <p className={`font-mono text-[11px] font-medium uppercase tracking-[0.04em] ${highlight ? 'text-accent-dark' : 'text-muted'}`}>{title}</p>
+      <p className={`text-[13px] font-medium ${highlight ? 'text-accent-dark' : 'text-muted'}`}>{title}</p>
       <ul className="mt-2 space-y-1 text-sm font-medium">
         {items.map((item) => (
           <li key={item}>{item}</li>
@@ -156,13 +155,12 @@ const FAQ = [
   ['Who made this?', 'Four IT students at José Rizal University in Mandaluyong City, as a research project on browser-based pose tracking.'],
 ]
 
-function Split({ id, label, title, children, proof, flip = false, tint = false }) {
+function Split({ id, title, children, proof, flip = false, tint = false }) {
   return (
     <section id={id} className={`scroll-mt-20 border-t border-line ${tint ? 'bg-paper-2' : ''}`}>
       <div className={`${container} grid items-center gap-10 py-16 sm:py-24 lg:grid-cols-2 lg:gap-16`}>
         <div className={flip ? 'lg:order-2' : ''}>
-          <p className={eyebrow}>{label}</p>
-          <h2 className={`mt-3 ${h2}`}>{title}</h2>
+          <h2 className={h2}>{title}</h2>
           <div className={`mt-5 max-w-[34rem] space-y-4 ${lede}`}>{children}</div>
         </div>
         <div className={`min-w-0 ${flip ? 'lg:order-1' : ''}`}>{proof}</div>
@@ -215,8 +213,7 @@ export default function LandingPage() {
 
       <Split
         id="how-it-works"
-        label="What it measures"
-        title="Angles, not a guess."
+        title="What it measures"
         proof={
           <div className={`${card} p-6`}>
             <AngleDiagram />
@@ -237,7 +234,6 @@ export default function LandingPage() {
 
       <Split
         id="privacy"
-        label="Privacy"
         title="Your video stays on your device."
         flip
         tint
@@ -253,11 +249,10 @@ export default function LandingPage() {
 
       <Split
         id="limits"
-        label="Limits"
         title="A guide, not a diagnosis."
         proof={
           <div className={`${card} p-6`}>
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-caution">Stop the stretch and seek care if you feel</p>
+            <p className="text-[13px] font-medium text-caution">Stop the stretch and seek care if you feel</p>
             <ul className="mt-3">
               {STOP.map((item) => (
                 <li key={item} className="flex items-center gap-3 border-t border-line py-3 first:border-t-0">

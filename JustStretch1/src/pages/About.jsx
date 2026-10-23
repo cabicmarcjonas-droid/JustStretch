@@ -1,6 +1,6 @@
 import Team from '../components/Team.jsx'
 import PublicLayout from '../layouts/PublicLayout.jsx'
-import { card, cardHead, container, displayTitle, eyebrow, h2, lede, statLabel } from '../lib/ui.js'
+import { card, cardHead, container, displayTitle, h2, lede, statLabel } from '../lib/ui.js'
 
 const FACTS = [
   ['33', 'body landmarks tracked live by MediaPipe'],
@@ -31,12 +31,11 @@ const STACK = [
   ['3D content', 'Blender reference animations'],
 ]
 
-function Section({ label, title, children, tint = false }) {
+function Section({ title, children, tint = false }) {
   return (
     <section className={`border-t border-line ${tint ? 'bg-paper-2' : ''}`}>
       <div className={`${container} py-14 sm:py-20`}>
-        <p className={eyebrow}>{label}</p>
-        <h2 className={`mt-3 ${h2}`}>{title}</h2>
+        <h2 className={h2}>{title}</h2>
         <div className="mt-8">{children}</div>
       </div>
     </section>
@@ -48,8 +47,7 @@ export default function About() {
     <PublicLayout title="About">
       <section className={`${container} grid items-end gap-10 py-14 sm:py-20 lg:grid-cols-[1fr_420px] lg:gap-16`}>
         <div>
-          <p className={eyebrow}>About</p>
-          <h1 className={`mt-3 max-w-[40rem] ${displayTitle}`}>Physio-style guidance, without the clinic visit.</h1>
+          <h1 className={`max-w-[40rem] ${displayTitle}`}>Physio-style guidance, without the clinic visit.</h1>
           <p className={`mt-6 max-w-2xl ${lede}`}>
             Many people live with a stiff neck or a sore lower back for months because seeing a physiotherapist is expensive, far away, or
             hard to fit into a working week. JustStretch is a small step toward closing that gap.
@@ -89,7 +87,7 @@ export default function About() {
         </div>
       </section>
 
-      <Section label="Sustainable Development Goals" title="Why it matters" tint>
+      <Section title="Sustainable Development Goals" tint>
         <div className="grid gap-4 md:grid-cols-3">
           {GOALS.map((goal) => (
             <div key={goal.n} className={`${card} p-5`}>
@@ -103,7 +101,7 @@ export default function About() {
         </div>
       </Section>
 
-      <Section label="Built with" title="The stack">
+      <Section title="The stack">
         <dl className={`${card} grid sm:grid-cols-2`}>
           {STACK.map(([labelText, value]) => (
             <div key={labelText} className="flex justify-between gap-4 border-b border-line px-5 py-3.5 sm:odd:border-r">
@@ -114,7 +112,7 @@ export default function About() {
         </dl>
       </Section>
 
-      <Section label="Team" title="Who made it" tint>
+      <Section title="Who made it" tint>
         <Team />
         <p className="mt-10 max-w-2xl text-sm text-muted">
           JustStretch is a student project and is not a medical device. If a stretch causes sharp or worsening pain, stop and seek

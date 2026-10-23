@@ -11,7 +11,7 @@ export default function Forbidden() {
     <PublicLayout title="Not allowed">
       <section className="mx-auto max-w-xl px-4 py-20 text-center sm:px-6 sm:py-28">
         <p className="font-mono text-[56px] font-medium leading-none text-accent">403</p>
-        <p className="mt-3 font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-muted">Not allowed</p>
+        <p className="mt-3 text-[13px] font-medium text-muted">Not allowed</p>
         <h1 className={`mt-2 ${pageTitle}`}>You can&apos;t edit this</h1>
         <p className="mt-4 text-[15px] leading-relaxed text-ink-2">
           Exercises in the library can only be changed or deleted by the member who added them. You can still view it and use it for

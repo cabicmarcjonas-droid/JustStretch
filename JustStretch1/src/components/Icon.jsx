@@ -63,7 +63,7 @@ export function PrivacyBand({ className = '' }) {
     <div className={`flex flex-col gap-4 rounded-lg border border-accent-mid bg-accent-soft p-5 sm:flex-row sm:items-start sm:gap-4 sm:p-6 ${className}`}>
       <Icon name="lock" className="h-5 w-5 shrink-0 text-accent-dark" />
       <div>
-        <h3 className="font-mono text-xs font-medium uppercase tracking-[0.04em] text-accent-dark">Private by design</h3>
+        <h3 className="text-[13px] font-medium text-accent-dark">Private by design</h3>
         <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2">
           Pose tracking runs entirely in your browser. Camera frames and body landmarks never leave your device. We only save the
           score, duration and notes you choose to submit.

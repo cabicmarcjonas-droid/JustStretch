@@ -47,7 +47,7 @@ function Account({ user, onLogout }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
-        <button type="button" onClick={onLogout} className="text-[13px] text-muted hover:text-ink">
+        <button type="button" onClick={onLogout} className="-ms-1 inline-flex h-8 items-center rounded-md px-1 text-[13px] text-muted hover:text-ink active:text-ink focus-visible:outline-2 focus-visible:outline-accent">
           Log out
         </button>
       </div>
@@ -110,8 +110,8 @@ export default function AppLayout({ title, header, children }) {
           <main>{children}</main>
         </div>
         <footer className="flex flex-col gap-1 border-t border-line px-4 py-4 text-xs text-muted sm:flex-row sm:justify-between sm:px-8 lg:px-10">
-          <p>© 2026 JustStretch · student research project</p>
-          <p className="font-mono">Not a medical device. Stop any stretch that causes sharp pain.</p>
+          <p>© 2026 JustStretch, a student research project</p>
+          <p>Not a medical device. Stop any stretch that causes sharp pain.</p>
         </footer>
       </div>
     </div>

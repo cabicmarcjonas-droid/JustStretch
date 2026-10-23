@@ -8,7 +8,7 @@ const tile = 'relative aspect-video overflow-hidden rounded-lg border border-lin
 // Slightly smaller on phones so Start, End session and the timer share one row.
 const stageButton = 'h-10 px-4 text-sm sm:h-11 sm:px-5'
 const tileLabel =
-  'absolute left-3 top-3 z-10 rounded-sm bg-ink/80 px-2 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-white'
+  'absolute left-3 top-3 z-10 rounded-sm bg-ink/80 px-2 py-1 text-[13px] font-medium text-white'
 
 // Two layouts, switched with CSS only (the section's data-layout attribute), so the reference
 // video and the tracker's DOM refs stay mounted and nothing restarts when you switch:
@@ -26,7 +26,7 @@ const readLayout = () => {
 const referenceMinimised =
   'group-data-[layout=focus]:absolute group-data-[layout=focus]:bottom-3 group-data-[layout=focus]:right-3 group-data-[layout=focus]:z-20 group-data-[layout=focus]:w-[32%] group-data-[layout=focus]:min-w-36 group-data-[layout=focus]:rounded-md group-data-[layout=focus]:ring-2 group-data-[layout=focus]:ring-white/80'
 const segment = (active) =>
-  `h-8 px-3 text-xs font-medium transition-colors first:border-r first:border-line ${
+  `h-8 whitespace-nowrap px-3 text-xs font-medium transition-colors first:border-r first:border-line ${
     active ? 'bg-ink text-white' : 'bg-surface text-ink-2 hover:bg-paper-2'
   }`
 
@@ -113,7 +113,7 @@ export default function PoseStage({
       className="group grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 lg:data-[layout=focus]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
     >
       <div className="col-span-full flex items-center justify-end gap-2">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-muted">Layout</span>
+        <span className="hidden text-[13px] font-medium text-muted sm:inline">Layout</span>
         <div role="group" aria-label="Session layout" className="inline-flex overflow-hidden rounded-md border border-line">
           <button type="button" aria-pressed={layout === 'split'} onClick={() => chooseLayout('split')} className={segment(layout === 'split')}>
             Video + camera
@@ -134,7 +134,7 @@ export default function PoseStage({
           <span className={tileLabel}>You</span>
           <video ref={video} className="hidden" playsInline muted />
           {/* The camera frame is 4:3; cover keeps the tile 16:9 like the reference. */}
-          <canvas ref={canvas} width="640" height="480" className="block h-full w-full -scale-x-100 object-cover" />
+          <canvas ref={canvas} width="640" height="480" aria-label="Your camera, with the tracked joints drawn over it" className="block h-full w-full -scale-x-100 object-cover" />
 
           <div
             ref={overlay}
@@ -155,7 +155,7 @@ export default function PoseStage({
             aria-live="assertive"
             className="absolute inset-0 z-10 hidden flex-col items-center justify-center gap-4 bg-ink/90 px-6 text-center text-white"
           >
-            <svg className="h-10 w-10 text-[#f2b65c]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <svg className="h-10 w-10 text-caution-bright" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -231,16 +231,16 @@ export default function PoseStage({
       >
         <div className="grid gap-5 md:grid-cols-[220px_1fr] lg:group-data-[layout=focus]:grid-cols-1">
           <div>
-            <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-muted">Live form score</h2>
+            <h2 className="text-[13px] font-medium text-muted">Live form score</h2>
             <span ref={liveScore} className="mt-1 block font-mono text-[44px] font-medium leading-none tabular-nums text-accent">
               —
             </span>
-            <p ref={liveFrames} className="mt-2 font-mono text-xs text-muted" />
+            <p ref={liveFrames} className="mt-2 text-[13px] text-muted" />
             <p ref={liveNote} className="mt-2 text-[13px] leading-snug text-ink-2" />
           </div>
           <div className="min-w-0 overflow-x-auto">
             <table ref={liveTable} className="w-full text-sm">
-              <thead className="border-b border-line font-mono text-[11px] uppercase tracking-[0.04em] text-muted">
+              <thead className="border-b border-line text-[13px] text-muted">
                 <tr>
                   <th className="py-1 text-left font-medium">Joint</th>
                   <th className="px-2 py-1 text-right font-medium">You</th>

@@ -24,7 +24,9 @@ export default function ExerciseCard({ exercise, recommended = false, className 
         <p className="mt-1.5 line-clamp-2 text-sm text-muted">{exercise.description}</p>
         <div className="mt-auto flex items-center gap-3 pt-3 text-xs text-muted">
           <DifficultyBadge difficulty={exercise.difficulty} />
-          <span className="font-mono">{exercise.durationMinutes} min</span>
+          <span>
+            <span className="font-mono">{exercise.durationMinutes}</span> min
+          </span>
           <span className="ms-auto truncate">by {byYou ? 'you' : exercise.author?.name}</span>
         </div>
       </div>

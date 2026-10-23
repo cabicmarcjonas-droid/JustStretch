@@ -35,12 +35,12 @@ function Summary({ summary }) {
     summary.averageScore != null && summary.previousAverageScore != null ? summary.averageScore - summary.previousAverageScore : null
 
   const items = [
-    [`Sessions · ${summary.days} days`, summary.count, `${minutes} ${plural('minute', minutes)} in total`],
+    [`Sessions (${summary.days} days)`, summary.count, `${minutes} ${plural('minute', minutes)} in total`],
     [
       'Average score',
       summary.averageScore ?? '—',
       delta == null ? (
-        `Previous ${summary.days} days: —`
+        `Previous ${summary.days} days: no data`
       ) : (
         <span className={delta >= 0 ? 'text-accent' : 'text-caution'}>
           {delta >= 0 ? '+' : '−'}
@@ -51,7 +51,7 @@ function Summary({ summary }) {
     [
       'Best score',
       summary.best?.score ?? '—',
-      summary.best ? `${summary.best.title ?? 'Deleted exercise'} · ${formatDate(summary.best.completedAt)}` : 'Nothing yet',
+      summary.best ? `${summary.best.title ?? 'Deleted exercise'}, ${formatDate(summary.best.completedAt)}` : 'Nothing yet',
     ],
   ]
 
@@ -152,7 +152,7 @@ export default function SessionsIndex() {
                 <Summary summary={data.summary} />
                 <section className={`${card} overflow-hidden`}>
                   <div className={`${cardHead} flex flex-wrap items-center justify-between gap-3`}>
-                    <h2 className={sectionTitle}>Form score · last {data.summary.days} days</h2>
+                    <h2 className={sectionTitle}>Form score, last {data.summary.days} days</h2>
                     <TargetLegend />
                   </div>
                   <div className="p-5">
@@ -178,7 +178,7 @@ export default function SessionsIndex() {
               <>
                 <div className={`${card} overflow-hidden`}>
                   <h2 className={`${cardHead} ${sectionTitle}`}>Session log</h2>
-                  <div className="overflow-x-auto">
+                  <div className="relative overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="border-b border-line text-left">
                         <tr>
