@@ -153,7 +153,7 @@ const FAQ = [
     'Neck, shoulders, chest, back, hips, legs and wrists. Stretches with a 3D reference video get a live score from the camera; the rest use a score you rate yourself.',
   ],
   ['Is it free?', 'Yes. You need an account to save sessions and see your history.'],
-  ['Who made this?', 'Four IT students in Mandaluyong City, as a research project on browser-based pose tracking.'],
+  ['Who made this?', 'Four IT students at José Rizal University in Mandaluyong City, as a research project on browser-based pose tracking.'],
 ]
 
 function Split({ id, label, title, children, proof, flip = false, tint = false }) {
