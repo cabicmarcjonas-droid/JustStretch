@@ -447,6 +447,26 @@ describe('sessions', () => {
     assert.equal(body.recentDays.length, 7)
     assert.equal(body.recentDays[6].active, true)
   })
+
+  test('suggested next comes from the body map areas, shuffling between them', async () => {
+    const user = await signUp('Map', 'map@example.com')
+    for (const [title, targetArea] of [['Neck one', 'neck'], ['Shoulder one', 'shoulders'], ['Quad one', 'quads'], ['Quad two', 'quads']]) {
+      await user.post('/api/exercises').send(exerciseBody({ title, targetArea }))
+    }
+
+    // No body map: any area can come first.
+    const before = await user.get('/api/dashboard')
+    assert.equal(before.body.suggestions.length, 4)
+
+    await user.put('/api/profile').send({ painAreas: ['neck', 'shoulders'] })
+    const seen = new Set()
+    for (let i = 0; i < 20; i += 1) {
+      const { body } = await user.get('/api/dashboard')
+      seen.add(body.suggestions[0].targetArea)
+      assert.equal(new Set(body.suggestions.map((e) => e.id)).size, body.suggestions.length)
+    }
+    assert.deepEqual([...seen].sort(), ['neck', 'shoulders'])
+  })
 })
 
 describe('streak', () => {

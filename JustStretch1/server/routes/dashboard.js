@@ -50,6 +50,38 @@ export function recentDays(days, now = new Date(), count = 7) {
 
 // How many recent sessions the score chart shows.
 const HISTORY_SIZE = 14
+const SUGGESTION_COUNT = 4
+
+const sample = (match, size) => Exercise.aggregate([{ $match: match }, { $sample: { size } }, { $project: { _id: 1 } }])
+
+// Random exercises, untried ones first; falls back to any exercise once everything has been tried.
+async function sampleUntriedFirst(match, triedIds, size) {
+  const untried = await sample({ $and: [match, { _id: { $nin: triedIds } }] }, size)
+  return untried.length > 0 ? untried : sample(match, size)
+}
+
+// The first suggestion is the dashboard's "Suggested next". When the member has marked pain
+// areas on their body map, it comes from one of those areas, picked at random so several
+// areas take turns. Without a body map (or with no exercises in those areas) it is any
+// random exercise, as before. The rest fill "Not tried yet".
+export async function pickSuggestions(painAreas, triedIds) {
+  let pick = null
+  if (painAreas.length > 0) {
+    const stocked = await Exercise.distinct('targetArea', { targetArea: { $in: painAreas } })
+    if (stocked.length > 0) {
+      const area = stocked[Math.floor(Math.random() * stocked.length)]
+      ;[pick] = await sampleUntriedFirst({ targetArea: area }, triedIds, 1)
+    }
+  }
+
+  const rest = await sampleUntriedFirst(pick ? { _id: { $ne: pick._id } } : {}, triedIds, pick ? SUGGESTION_COUNT - 1 : SUGGESTION_COUNT)
+  const ids = [...(pick ? [pick._id] : []), ...rest.map((p) => p._id)]
+
+  // find() returns its own order, so put them back in the order they were picked.
+  const found = await Exercise.find({ _id: { $in: ids } }).populate('author', 'name')
+  const byId = new Map(found.map((e) => [String(e._id), e]))
+  return ids.map((id) => byId.get(String(id))).filter(Boolean)
+}
 
 router.get('/', async (req, res) => {
   const userId = req.user._id
@@ -94,12 +126,7 @@ router.get('/', async (req, res) => {
   ])
   const days = new Set(activeDays.map((d) => d._id))
 
-  // 4 random exercises the user has not tried yet; any 4 if they have tried everything.
-  // The dashboard shows the first as "Today's pick" and the rest under "Try something new".
-  const sample = async (match) => Exercise.aggregate([{ $match: match }, { $sample: { size: 4 } }, { $project: { _id: 1 } }])
-  let picked = await sample({ _id: { $nin: triedIds } })
-  if (picked.length === 0) picked = await sample({})
-  const suggestions = await Exercise.find({ _id: { $in: picked.map((p) => p._id) } }).populate('author', 'name')
+  const suggestions = await pickSuggestions(req.user.painAreas ?? [], triedIds)
 
   res.json({
     totalSessions,
