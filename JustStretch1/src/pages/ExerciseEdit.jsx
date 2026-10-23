@@ -10,7 +10,7 @@ import ExerciseForm from './ExerciseForm.jsx'
 import Forbidden from './Forbidden.jsx'
 import NotFound from './NotFound.jsx'
 
-const body = 'mx-auto max-w-3xl px-4 pb-16 pt-6 sm:px-8 md:px-0'
+const body = 'max-w-3xl pb-10'
 
 export default function ExerciseEdit() {
   const { id } = useParams()
@@ -29,7 +29,7 @@ export default function ExerciseEdit() {
     return (
       <AppLayout title="Edit exercise">
         <div className={body}>
-          <p className={`text-sm ${error ? 'text-red-700' : 'text-slate-500'}`} role={error ? 'alert' : 'status'}>
+          <p className={`text-sm ${error ? 'text-danger' : 'text-muted'}`} role={error ? 'alert' : 'status'}>
             {loading ? 'Loading exercise…' : `Could not load this exercise: ${error?.message}`}
           </p>
         </div>
@@ -40,15 +40,15 @@ export default function ExerciseEdit() {
   const { exercise } = data
 
   const header = (
-    <div className="mx-auto max-w-3xl">
+    <div className="max-w-3xl">
       <Link
         to={`/exercises/${exercise.id}`}
-        className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 transition-colors hover:text-accent"
+        className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-accent"
       >
         <Icon name="arrowLeft" className="h-4 w-4" />
         Back to exercise
       </Link>
-      <h1 className={`mt-4 ${pageTitle}`}>Edit “{exercise.title}”</h1>
+      <h1 className={`mt-3 ${pageTitle}`}>Edit “{exercise.title}”</h1>
     </div>
   )
 

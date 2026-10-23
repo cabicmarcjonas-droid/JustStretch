@@ -9,7 +9,7 @@ import { api } from '../lib/api.js'
 import { PAIN_AREAS, areaLabel } from '../lib/enums.js'
 import { initials } from '../lib/format.js'
 import { useFetch, useForm } from '../lib/hooks.js'
-import { btn, card, container, pageTitle } from '../lib/ui.js'
+import { btn, card, pageTitle } from '../lib/ui.js'
 
 const SECTIONS = [
   { id: 'body', label: 'Body map', icon: 'body' },
@@ -28,9 +28,9 @@ const TESTS = [
 
 // Where each area button sits on the silhouette, from the head down.
 const AREA_POSITIONS = {
-  neck: 'top-[12%]',
-  shoulders: 'top-[16%]',
-  upper_back: 'top-[30%]',
+  neck: 'top-[9%]',
+  shoulders: 'top-[18%]',
+  upper_back: 'top-[31%]',
   lower_back: 'top-[43%]',
   hips: 'top-[57%]',
   quads: 'top-[72%]',
@@ -47,18 +47,18 @@ function SavedNote() {
   }, [])
 
   return visible ? (
-    <p className="inline-flex items-center gap-1.5 text-sm font-bold text-accent" role="status">
+    <p className="inline-flex items-center gap-1.5 text-sm font-medium text-accent" role="status">
       <Icon name="check" className="h-4 w-4" strokeWidth={2.4} />
       Saved
     </p>
   ) : null
 }
 
-function SectionHeader({ title, children }) {
+function SectionHeader({ title, danger = false, children }) {
   return (
-    <header>
-      <h2 className="text-xl font-black italic tracking-tighter text-ink">{title}</h2>
-      <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-600">{children}</p>
+    <header className={`-mx-5 -mt-5 mb-5 border-b px-5 py-4 sm:-mx-6 sm:-mt-6 sm:px-6 ${danger ? 'border-danger-line bg-danger-soft' : 'border-line bg-paper-2'}`}>
+      <h2 className={`text-base font-semibold ${danger ? 'text-danger' : 'text-ink'}`}>{title}</h2>
+      <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-2">{children}</p>
     </header>
   )
 }
@@ -66,7 +66,7 @@ function SectionHeader({ title, children }) {
 // A simple front-facing silhouette, so the buttons land on the part they name.
 function BodySilhouette() {
   return (
-    <svg viewBox="0 0 200 400" className="absolute inset-0 h-full w-full text-slate-200" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 200 400" className="absolute inset-0 h-full w-full text-paper-2" aria-hidden="true" focusable="false">
       <g fill="currentColor">
         <circle cx="100" cy="26" r="18" />
         <rect x="92" y="42" width="16" height="14" rx="6" />
@@ -81,14 +81,14 @@ function BodySilhouette() {
 }
 
 const areaButton = (active) =>
-  `absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-bold transition-colors ${
-    active ? 'border-accent bg-accent text-white shadow-sm' : 'border-slate-300 bg-white text-slate-700 hover:border-accent hover:text-accent'
+  `absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+    active ? 'border-accent bg-accent text-white' : 'border-line-strong bg-surface text-ink-2 hover:border-accent hover:text-accent'
   }`
 
 // The body map: tap an area to select it, tap it again to clear it.
 function BodyMap({ painAreas, onToggle }) {
   return (
-    <div className="relative mx-auto mt-6 aspect-[1/2] w-full max-w-[220px]">
+    <div className="relative mx-auto aspect-[1/2] w-full max-w-[220px]">
       <BodySilhouette />
       {PAIN_AREAS.map((area) => (
         <button
@@ -153,19 +153,19 @@ function BodyAndFlexibilityForm({ profile }) {
 
   return (
     <form onSubmit={save} className="space-y-6">
-      <section id="body" className={`${card} scroll-mt-24 p-6 sm:p-8`}>
+      <section id="body" className={`${card} scroll-mt-8 overflow-hidden p-5 sm:p-6`}>
         <SectionHeader title="Body map">
           Tap the areas where you feel pain. We use them to put the stretches that help you first in the library.
         </SectionHeader>
         <BodyMap painAreas={painAreas} onToggle={toggle} />
       </section>
 
-      <section id="flexibility" className={`${card} scroll-mt-24 p-6 sm:p-8`}>
+      <section id="flexibility" className={`${card} scroll-mt-8 overflow-hidden p-5 sm:p-6`}>
         <SectionHeader title="Starting flexibility">
           Your starting point, so later sessions can be compared against it. Leave a field empty if you have not measured it.
         </SectionHeader>
 
-        <div className="mt-6 grid max-w-2xl gap-5 sm:grid-cols-3">
+        <div className="grid max-w-2xl gap-5 sm:grid-cols-3">
           {TESTS.map((test) => (
             <div key={test.id}>
               <InputLabel htmlFor={test.id} value={test.label} />
@@ -180,7 +180,7 @@ function BodyAndFlexibilityForm({ profile }) {
                   className="pe-12"
                   {...bind(test.id)}
                 />
-                <span className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-500">{test.unit}</span>
+                <span className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 font-mono text-xs text-muted">{test.unit}</span>
               </div>
             </div>
           ))}
@@ -211,15 +211,15 @@ function ProfileInformation() {
   }
 
   return (
-    <section id="profile" className={`${card} scroll-mt-24 p-6 sm:p-8`}>
+    <section id="profile" className={`${card} scroll-mt-8 overflow-hidden p-5 sm:p-6`}>
       <SectionHeader title="Profile information">Update your name and the email address you log in with.</SectionHeader>
 
-      <form onSubmit={submit} className="mt-6 max-w-xl space-y-5">
+      <form onSubmit={submit} className="max-w-xl space-y-5">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-lg font-black text-accent">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-accent-soft font-mono text-base font-medium text-accent-dark">
             {initials(form.values.name || user.name)}
           </span>
-          <p className="text-sm text-slate-500">Your initials appear in the menu and on exercises you add.</p>
+          <p className="text-sm text-muted">Your initials appear in the menu and on exercises you add.</p>
         </div>
 
         <div>
@@ -259,10 +259,10 @@ function UpdatePassword() {
   }
 
   return (
-    <section id="password" className={`${card} scroll-mt-24 p-6 sm:p-8`}>
+    <section id="password" className={`${card} scroll-mt-8 overflow-hidden p-5 sm:p-6`}>
       <SectionHeader title="Password">Use a long password you don&apos;t use anywhere else. At least 8 characters.</SectionHeader>
 
-      <form onSubmit={submit} className="mt-6 max-w-xl space-y-5">
+      <form onSubmit={submit} className="max-w-xl space-y-5">
         <div>
           <InputLabel htmlFor="update_password_current_password" value="Current password" />
           <TextInput
@@ -328,20 +328,20 @@ function DeleteAccount() {
   }
 
   return (
-    <section id="delete" className="scroll-mt-24 rounded-2xl border border-red-200 bg-white p-6 shadow-card sm:p-8">
-      <SectionHeader title="Delete account">
+    <section id="delete" className="scroll-mt-8 overflow-hidden rounded-lg border border-danger-line bg-surface p-5 sm:p-6">
+      <SectionHeader title="Delete account" danger>
         This permanently removes your account, your session history and every exercise you added to the library (along with other
         members&apos; sessions on those exercises).
       </SectionHeader>
 
-      <button type="button" onClick={() => setOpen(true)} className={`${btn.dangerOutline} ${btn.md} mt-6`}>
+      <button type="button" onClick={() => setOpen(true)} className={`${btn.dangerOutline} ${btn.md}`}>
         Delete account
       </button>
 
       <Modal show={open} onClose={close} maxWidth="lg">
-        <form onSubmit={submit} className="p-6 sm:p-7">
-          <h2 className="text-xl font-black italic tracking-tighter text-ink">Delete your account?</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">This cannot be undone. Enter your password to confirm.</p>
+        <form onSubmit={submit} className="p-6">
+          <h2 className="text-xl font-semibold tracking-[-0.01em] text-ink">Delete your account?</h2>
+          <p className="mt-2 text-sm leading-relaxed text-ink-2">This cannot be undone. Enter your password to confirm.</p>
 
           <div className="mt-5">
             <InputLabel htmlFor="delete_password" value="Password" />
@@ -365,14 +365,14 @@ export default function Profile() {
 
   return (
     <AppLayout title="Profile" header={header}>
-      <div className={`${container} grid gap-8 pb-16 pt-6 lg:grid-cols-[220px_1fr]`}>
-        <nav aria-label="Settings sections" className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+      <div className="grid gap-6 pb-10 lg:grid-cols-[200px_1fr]">
+        <nav aria-label="Settings sections" className="min-w-0 lg:sticky lg:top-8 lg:self-start">
           <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:flex-col">
             {SECTIONS.map((section) => (
               <li key={section.id}>
                 <a
                   href={`#${section.id}`}
-                  className="flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-white hover:text-accent"
+                  className="flex items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface hover:text-accent"
                 >
                   <Icon name={section.icon} className="h-4 w-4" />
                   {section.label}

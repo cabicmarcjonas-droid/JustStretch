@@ -5,16 +5,31 @@ import Icon from '../components/Icon.jsx'
 import { areaOptions, difficultyOptions, instructionSteps } from '../lib/enums.js'
 import { plural } from '../lib/format.js'
 import { useForm } from '../lib/hooks.js'
-import { btn, card, sectionTitle, select, textarea } from '../lib/ui.js'
+import { btn, card, cardHead, sectionTitle, select, textarea } from '../lib/ui.js'
 
 const AREAS = Object.entries(areaOptions())
 const DIFFICULTIES = Object.entries(difficultyOptions())
 const MAX_BENEFITS = 5
 const MAX_STEPS = 12
 
-const hint = 'mt-0.5 text-[13px] text-slate-500'
+const hint = 'mt-0.5 text-[13px] text-muted'
 const iconButton =
-  'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-40 disabled:hover:border-slate-300 disabled:hover:bg-white disabled:hover:text-slate-500'
+  'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line bg-surface text-muted transition-colors hover:border-danger-line hover:bg-danger-soft hover:text-danger disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-surface disabled:hover:text-muted'
+const alertBox = 'rounded-md border border-danger-line bg-danger-soft px-4 py-3 text-sm font-medium text-danger'
+
+// Numbered form section: grey head with the number and title, fields below.
+function Section({ n, title, note, children }) {
+  return (
+    <section className={`${card} overflow-hidden`}>
+      <div className={`${cardHead} flex items-baseline gap-3`}>
+        <span className="font-mono text-xs font-medium text-accent">{n}</span>
+        <h2 className={sectionTitle}>{title}</h2>
+        {note && <span className="ms-auto hidden text-[13px] text-muted sm:inline">{note}</span>}
+      </div>
+      <div className="space-y-5 p-5 sm:p-6">{children}</div>
+    </section>
+  )
+}
 
 // Shared by the create and edit pages. Steps are edited one per input and sent to the API
 // joined by newlines, the same `instructions` string it has always stored.
@@ -88,18 +103,17 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       {errorCount > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
+        <div className={alertBox} role="alert">
           Please fix the {plural('field', errorCount)} highlighted below.
         </div>
       )}
       {errors._form && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
+        <div className={alertBox} role="alert">
           {errors._form[0]}
         </div>
       )}
 
-      <section className={`${card} space-y-5 p-6 sm:p-7`}>
-        <h2 className={sectionTitle}>Basics</h2>
+      <Section n="01" title="Basics">
 
         <div>
           <InputLabel htmlFor="title" value="Title" />
@@ -171,20 +185,15 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
           />
           <InputError messages={errors.description} className="mt-2" />
         </div>
-      </section>
+      </Section>
 
-      <section className={`${card} space-y-5 p-6 sm:p-7`}>
-        <h2 className={sectionTitle}>How to do it</h2>
-
+      <Section n="02" title="Steps" note="One instruction per step">
         <fieldset>
-          <legend className="text-sm font-semibold text-slate-700">Steps</legend>
-          <p className={hint}>One instruction per step. They are shown as a numbered list.</p>
+          <legend className="sr-only">Steps</legend>
           <ol className="mt-3 space-y-2.5">
             {steps.map((step, index) => (
               <li key={index} className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-black text-accent">
-                  {index + 1}
-                </span>
+                <span className="w-6 shrink-0 font-mono text-sm font-medium text-accent">{String(index + 1).padStart(2, '0')}</span>
                 <label htmlFor={`step_${index}`} className="sr-only">
                   Step {index + 1}
                 </label>
@@ -216,21 +225,22 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
           )}
           <InputError messages={errors.instructions} className="mt-2" />
         </fieldset>
+      </Section>
 
+      <Section n="03" title="Benefits" note="One to five short benefits">
         <fieldset>
-          <legend className="text-sm font-semibold text-slate-700">Benefits</legend>
-          <p className={hint}>Between one and five short benefits.</p>
+          <legend className="sr-only">Benefits</legend>
           {benefits.length > 0 && (
             <ul className="mt-3 flex flex-wrap gap-2">
               {benefits.map((benefit) => (
                 <li
                   key={benefit}
-                  className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-accent-soft py-1 pe-1 ps-3.5 text-sm font-semibold text-accent-dark"
+                  className="inline-flex items-center gap-1 rounded-md border border-accent-mid bg-accent-soft py-1 pe-1 ps-3 text-sm font-medium text-accent-dark"
                 >
                   {benefit}
                   <button
                     type="button"
-                    className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-emerald-100"
+                    className="flex h-6 w-6 items-center justify-center rounded-sm hover:bg-accent-mid/40"
                     onClick={() => setField('benefits', benefits.filter((b) => b !== benefit))}
                     aria-label={`Remove ${benefit}`}
                   >
@@ -266,6 +276,9 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
           )}
           <InputError messages={benefitErrors} className="mt-2" />
         </fieldset>
+      </Section>
+
+      <Section n="04" title="Safety and video">
 
         <div>
           <InputLabel htmlFor="precautions" value="Precautions (optional)" />
@@ -283,17 +296,17 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
         <div>
           <InputLabel htmlFor="video_url" value="Demo video URL (optional)" />
           <TextInput id="video_url" type="text" maxLength={255} className="mt-1.5" placeholder="https://… or /videos/stretch.mp4" {...form.bind('videoUrl')} />
+          <p className={`${hint} mt-2`}>Stretches using one of the bundled /videos files get a live score; others are self-rated.</p>
           <InputError messages={errors.videoUrl} className="mt-2" />
         </div>
-      </section>
+      </Section>
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Link to={cancelTo} className={`${btn.secondary} ${btn.lg}`}>
+      <div className={`${card} flex flex-col-reverse gap-3 p-4 sm:flex-row sm:items-center sm:justify-end`}>
+        <p className="text-[13px] text-muted sm:me-auto">Only you can edit or remove this exercise later.</p>
+        <Link to={cancelTo} className={`${btn.secondary} ${btn.md}`}>
           Cancel
         </Link>
-        <PrimaryButton size="lg" disabled={form.processing}>
-          {submitLabel}
-        </PrimaryButton>
+        <PrimaryButton disabled={form.processing}>{submitLabel}</PrimaryButton>
       </div>
     </form>
   )

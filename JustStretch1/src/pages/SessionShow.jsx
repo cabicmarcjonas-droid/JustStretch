@@ -8,17 +8,17 @@ import { areaLabel, formatDuration } from '../lib/enums.js'
 import { formatDateLong, formatTime } from '../lib/format.js'
 import { useFetch } from '../lib/hooks.js'
 import { FATIGUE_LABELS, jointLabel } from '../lib/sessionMetrics.js'
-import { btn, card, container, pageTitle, sectionTitle, statLabel } from '../lib/ui.js'
+import { btn, card, cardHead, pageTitle, sectionTitle, statLabel } from '../lib/ui.js'
 import NotFound from './NotFound.jsx'
 
-function Stat({ label, value, note, small = false }) {
+function Vital({ label, value, note, small = false }) {
   return (
-    <div className={`${card} p-5`}>
+    <div className="min-w-0 bg-surface p-5">
       <p className={statLabel}>{label}</p>
-      <p className={`mt-2 truncate font-black italic tracking-tighter tabular-nums text-ink ${small ? 'text-2xl sm:text-3xl' : 'text-4xl'}`}>
+      <p className={`mt-2 truncate tabular-nums ${small ? 'font-mono text-[24px] font-medium leading-8' : 'font-mono text-[32px] font-medium leading-8'}`}>
         {value}
       </p>
-      <p className="mt-1 text-sm text-slate-500">{note}</p>
+      <p className="mt-1.5 truncate text-[13px] text-muted">{note}</p>
     </div>
   )
 }
@@ -27,29 +27,27 @@ function Stat({ label, value, note, small = false }) {
 // it stayed inside its margin of error.
 function JointTable({ joints }) {
   return (
-    <div className="mt-5 overflow-x-auto">
+    <div className="overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="text-xs text-slate-500">
+        <thead className="border-b border-line">
           <tr>
-            <th scope="col" className="py-1 text-left font-bold">
+            <th scope="col" className={`${statLabel} px-5 py-2.5 text-left font-medium`}>
               Joint
             </th>
-            <th scope="col" className="py-1 text-right font-bold">
+            <th scope="col" className={`${statLabel} px-3 py-2.5 text-right font-medium`}>
               Average error
             </th>
-            <th scope="col" className="py-1 text-right font-bold">
+            <th scope="col" className={`${statLabel} px-5 py-2.5 text-right font-medium`}>
               Time in range
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-line">
           {joints.map((joint) => (
-            <tr key={joint.joint} className="border-t border-slate-200">
-              <td className="py-2 capitalize">{jointLabel(joint.joint)}</td>
-              <td className="py-2 text-right tabular-nums">{`${Number(joint.avgError ?? 0).toFixed(1)}°`}</td>
-              <td
-                className={`py-2 text-right font-bold tabular-nums ${joint.timeInRangePct >= 80 ? 'text-accent' : 'text-red-700'}`}
-              >
+            <tr key={joint.joint}>
+              <td className="px-5 py-2.5 font-medium capitalize">{jointLabel(joint.joint)}</td>
+              <td className="px-3 py-2.5 text-right font-mono">{`${Number(joint.avgError ?? 0).toFixed(1)}°`}</td>
+              <td className={`px-5 py-2.5 text-right font-mono font-medium ${joint.timeInRangePct >= 80 ? 'text-accent' : 'text-danger'}`}>
                 {`${joint.timeInRangePct}%`}
               </td>
             </tr>
@@ -69,33 +67,26 @@ function TrackingResults({ session }) {
   const hasTracking = session.trackingScore != null || joints.length > 0
 
   return (
-    <section className={`${card} p-6`}>
-      <h2 className={sectionTitle}>Tracking results</h2>
+    <section className={`${card} overflow-hidden`}>
+      <div className={`${cardHead} flex flex-wrap items-center justify-between gap-3`}>
+        <h2 className={sectionTitle}>Tracking results</h2>
+        {hasTracking && (
+          <p className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-ink-2">
+            <span>{judged ?? '—'} frames judged</span>
+            <span>{within ?? '—'} within margin</span>
+            {dropped > 0 && <span>{dropped} dropped</span>}
+          </p>
+        )}
+      </div>
 
       {hasTracking ? (
-        <>
-          <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm text-slate-600">
-            <p>
-              <span className="font-bold tabular-nums text-ink">{judged ?? '—'}</span> frames judged
-            </p>
-            <p>
-              <span className="font-bold tabular-nums text-ink">{within ?? '—'}</span> within margin
-            </p>
-            {dropped > 0 && (
-              <p>
-                <span className="font-bold tabular-nums text-ink">{dropped}</span> dropped
-              </p>
-            )}
-          </div>
-
-          {joints.length > 0 ? (
-            <JointTable joints={joints} />
-          ) : (
-            <p className="mt-4 text-sm text-slate-600">No joint was tracked long enough to report on.</p>
-          )}
-        </>
+        joints.length > 0 ? (
+          <JointTable joints={joints} />
+        ) : (
+          <p className="px-5 py-4 text-sm text-ink-2">No joint was tracked long enough to report on.</p>
+        )
       ) : (
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+        <p className="px-5 py-4 text-sm leading-relaxed text-ink-2">
           This session has no camera tracking data. It was scored by hand, so there are no per-joint results to show.
         </p>
       )}
@@ -110,18 +101,21 @@ export default function SessionShow() {
   if (error?.status === 404) return <NotFound />
 
   const backLink = (
-    <Link to="/sessions" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 transition-colors hover:text-accent">
-      <Icon name="arrowLeft" className="h-4 w-4" strokeWidth={2.2} />
-      My sessions
-    </Link>
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted">
+      <Link to="/sessions" className="hover:text-accent">
+        My sessions
+      </Link>
+      <Icon name="chevronRight" className="h-3.5 w-3.5" />
+      <span className="text-ink-2">Session</span>
+    </nav>
   )
 
   if (error?.status === 403) {
     return (
       <AppLayout title="Not allowed" header={backLink}>
-        <div className={`${container} py-16`}>
+        <div className="py-10">
           <h1 className={pageTitle}>This session isn&apos;t yours</h1>
-          <p className="mt-2 text-[15px] text-slate-600">Only the member who completed a session can open it.</p>
+          <p className="mt-2 text-[15px] text-ink-2">Only the member who completed a session can open it.</p>
           <div className="mt-6">
             <Link to="/sessions" className={`${btn.secondary} ${btn.md}`}>
               Back to my sessions
@@ -135,11 +129,9 @@ export default function SessionShow() {
   if (!data) {
     return (
       <AppLayout title="Session" header={backLink}>
-        <div className={`${container} py-16`}>
-          <p className={`text-sm ${error ? 'text-red-700' : 'text-slate-500'}`} role={error ? 'alert' : 'status'}>
-            {loading ? 'Loading session…' : `Could not load this session: ${error?.message}`}
-          </p>
-        </div>
+        <p className={`py-10 text-sm ${error ? 'text-danger' : 'text-muted'}`} role={error ? 'alert' : 'status'}>
+          {loading ? 'Loading session…' : `Could not load this session: ${error?.message}`}
+        </p>
       </AppLayout>
     )
   }
@@ -151,11 +143,11 @@ export default function SessionShow() {
   const header = (
     <>
       {backLink}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         <h1 className={pageTitle}>{exercise ? exercise.title : 'Deleted exercise'}</h1>
         <ScoreBadge score={session.score} />
       </div>
-      <p className="mt-1 text-[15px] text-slate-600">
+      <p className="mt-1.5 font-mono text-xs uppercase tracking-[0.04em] text-muted">
         {exercise ? `${areaLabel(exercise.targetArea)} · ` : ''}
         {formatDateLong(session.completedAt)} · {formatTime(session.completedAt)}
       </p>
@@ -175,32 +167,38 @@ export default function SessionShow() {
 
   return (
     <AppLayout title={`Session · ${exercise?.title ?? 'Stretch'}`} header={header}>
-      <div className={`${container} space-y-6 pb-16 pt-6`}>
-        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4 [&>*]:min-w-0" aria-label="Session results">
+      <div className="space-y-6 pb-10">
+        <section className={`${card} grid grid-cols-2 gap-px overflow-hidden bg-line lg:grid-cols-4`} aria-label="Session results">
           {stats.map(([label, value, note]) => (
-            <Stat key={label} label={label} value={value} note={note} small={label === 'Duration'} />
+            <Vital key={label} label={label} value={value} note={note} small={label === 'Duration'} />
           ))}
-        </section>
-
-        <section className={`${card} p-6`}>
-          <div className="flex flex-wrap items-center gap-4">
-            <Thumbnail videoUrl={exercise?.videoUrl} className="h-14 w-20 shrink-0 rounded-lg" />
-            <div className="min-w-0 flex-1">
-              {exercise ? (
-                <Link to={`/exercises/${exercise.id}`} className="text-lg font-bold hover:text-accent">
-                  {exercise.title}
-                </Link>
-              ) : (
-                <p className="text-lg font-bold text-slate-500">Deleted exercise</p>
-              )}
-              {session.notes && <p className="mt-1 text-sm italic text-slate-600">“{session.notes}”</p>}
-            </div>
-          </div>
         </section>
 
         <ReferralCard referral={session.referral} />
 
-        <TrackingResults session={session} />
+        <div className="grid gap-6 lg:grid-cols-[1fr_340px] [&>*]:min-w-0">
+          <TrackingResults session={session} />
+
+          <section className={`${card} self-start overflow-hidden`}>
+            <h2 className={`${cardHead} ${sectionTitle}`}>Exercise and notes</h2>
+            <div className="space-y-4 p-5">
+              <div className="flex items-center gap-3">
+                <Thumbnail videoUrl={exercise?.videoUrl} className="h-12 w-[72px] shrink-0 rounded-md" />
+                {exercise ? (
+                  <Link to={`/exercises/${exercise.id}`} className="font-medium hover:text-accent">
+                    {exercise.title}
+                  </Link>
+                ) : (
+                  <p className="font-medium text-muted">Deleted exercise</p>
+                )}
+              </div>
+              <div>
+                <p className={statLabel}>Your notes</p>
+                <p className="mt-1 text-sm text-ink-2">{session.notes ? `“${session.notes}”` : 'No notes for this session.'}</p>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </AppLayout>
   )
