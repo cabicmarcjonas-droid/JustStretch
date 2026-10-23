@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { IconTile } from '../components/Icon.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import PublicLayout from '../layouts/PublicLayout.jsx'
 import { btn, pageTitle } from '../lib/ui.js'
@@ -11,10 +10,10 @@ export default function Forbidden() {
   return (
     <PublicLayout title="Not allowed">
       <section className="mx-auto max-w-xl px-4 py-20 text-center sm:px-6 sm:py-28">
-        <IconTile name="lock" size="mx-auto h-14 w-14" iconSize="h-7 w-7" />
-        <p className="mt-6 text-sm font-bold uppercase tracking-wider text-slate-500">Error 403</p>
+        <p className="font-mono text-[56px] font-medium leading-none text-accent">403</p>
+        <p className="mt-3 font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-muted">Not allowed</p>
         <h1 className={`mt-2 ${pageTitle}`}>You can&apos;t edit this</h1>
-        <p className="mt-4 text-[15px] leading-relaxed text-slate-600">
+        <p className="mt-4 text-[15px] leading-relaxed text-ink-2">
           Exercises in the library can only be changed or deleted by the member who added them. You can still view it and use it for
           your own sessions.
         </p>

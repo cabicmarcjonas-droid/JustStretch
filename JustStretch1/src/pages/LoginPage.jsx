@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../components/Icon.jsx'
+import { Wordmark } from '../components/Mark.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useForm, usePageTitle } from '../lib/hooks.js'
 import { btn, input, label } from '../lib/ui.js'
@@ -12,7 +13,7 @@ const FADE = 'transition-opacity duration-300 motion-reduce:transition-none'
 
 const FieldError = ({ messages }) =>
   messages?.length ? (
-    <p className="text-xs font-bold text-red-700" role="alert">
+    <p className="text-[13px] font-medium text-danger" role="alert">
       {messages[0]}
     </p>
   ) : null
@@ -27,7 +28,7 @@ function Field({ id, labelText, hint, error, aside, ...props }) {
         {aside}
       </div>
       <input id={id} className={input} {...props} />
-      {hint && !error?.length && <p className="text-xs text-slate-500">{hint}</p>}
+      {hint && !error?.length && <p className="text-[13px] text-muted">{hint}</p>}
       <FieldError messages={error} />
     </div>
   )
@@ -40,7 +41,7 @@ function PasswordField({ id, ...props }) {
       id={id}
       type={shown ? 'text' : 'password'}
       aside={
-        <button type="button" onClick={() => setShown((v) => !v)} className="text-[13px] font-bold text-accent hover:text-accent-dark">
+        <button type="button" onClick={() => setShown((v) => !v)} className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-accent hover:text-accent-dark">
           {shown ? 'Hide' : 'Show'}
         </button>
       }
@@ -68,9 +69,9 @@ function RegisterForm({ active, onToggle }) {
       inert={!active}
     >
       <div>
-        <p className="text-xl font-black italic tracking-tighter">JustStretch</p>
-        <h1 className="mt-4 text-3xl font-black italic tracking-tighter">Create your account</h1>
-        <p className="mt-1 text-[15px] text-slate-500">Free, and it takes under a minute.</p>
+        <Wordmark />
+        <h1 className="mt-6 text-[28px] font-semibold tracking-[-0.02em]">Create your account</h1>
+        <p className="mt-1 text-[15px] text-muted">Free, and it takes under a minute.</p>
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -111,9 +112,9 @@ function RegisterForm({ active, onToggle }) {
         </button>
       </form>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-muted">
         Already have an account?{' '}
-        <button type="button" onClick={onToggle} className="font-bold text-accent hover:text-accent-dark">
+        <button type="button" onClick={onToggle} className="font-medium text-accent underline underline-offset-2 hover:text-accent-dark">
           Log in
         </button>
       </p>
@@ -138,9 +139,9 @@ function LoginForm({ active, onToggle }) {
       inert={!active}
     >
       <div>
-        <p className="text-xl font-black italic tracking-tighter">JustStretch</p>
-        <h1 className="mt-4 text-3xl font-black italic tracking-tighter">Log in</h1>
-        <p className="mt-1 text-[15px] text-slate-500">Welcome back. Pick up where you left off.</p>
+        <Wordmark />
+        <h1 className="mt-6 text-[28px] font-semibold tracking-[-0.02em]">Log in</h1>
+        <p className="mt-1 text-[15px] text-muted">Welcome back. Pick up where you left off.</p>
       </div>
 
       {/* Password reset needs a mail setup (see PARKED.md), so there is no "Forgot password?" link. */}
@@ -169,9 +170,9 @@ function LoginForm({ active, onToggle }) {
         </button>
       </form>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-muted">
         New here?{' '}
-        <button type="button" onClick={onToggle} className="font-bold text-accent hover:text-accent-dark">
+        <button type="button" onClick={onToggle} className="font-medium text-accent underline underline-offset-2 hover:text-accent-dark">
           Create an account
         </button>
       </p>
@@ -181,37 +182,39 @@ function LoginForm({ active, onToggle }) {
 
 const BRAND = {
   login: {
-    title: 'Your stretch streak is waiting.',
-    points: ['Pick up your saved sessions and scores', 'See how your form trends week to week'],
+    title: 'Your session history is waiting.',
+    points: ['Saved sessions and scores', 'Form trend week to week', 'Stretches matched to your body map'],
     switchLabel: 'Create an account',
   },
   register: {
-    title: 'Stretch better. Move better. Feel better.',
-    points: ['Guided stretches with a 3D reference', 'Live feedback from your webcam', 'Your video never leaves your device'],
+    title: 'Stretch at home, with measured feedback.',
+    points: ['Guided stretches with a 3D reference', 'Joint-angle feedback from your webcam', 'Your video never leaves your device'],
     switchLabel: 'I already have an account',
   },
 }
 
-// Green panel with a frame from a reference video. Sits over the inactive form (desktop only).
+// Dark panel with a frame from a reference video. Sits over the inactive form (desktop only).
 function BrandPanel({ view, onToggle }) {
   const content = BRAND[view]
   return (
     <div
-      className={`absolute inset-y-0 left-0 z-10 hidden w-1/2 bg-accent sm:block ${SLIDE} ${view === 'login' ? 'translate-x-full' : 'translate-x-0'}`}
+      className={`absolute inset-y-0 left-0 z-10 hidden w-1/2 bg-ink sm:block ${SLIDE} ${view === 'login' ? 'translate-x-full' : 'translate-x-0'}`}
     >
       <div key={view} className="flex h-full flex-col justify-center gap-6 px-10 text-white">
-        <div className="relative aspect-[340/220] overflow-hidden rounded-2xl bg-slate-200">
-          <img src="/thumbs/neck_side_tilt.jpg" alt="" className="h-full w-full object-cover" />
-          <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white px-3 py-1 shadow-lg">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Live form</span>
-            <span className="text-lg font-black italic tracking-tighter text-accent">86</span>
-          </span>
+        <div className="overflow-hidden rounded-md border border-white/15">
+          <div className="aspect-[340/200] bg-ink-2">
+            <img src="/thumbs/neck_side_tilt.jpg" alt="" className="h-full w-full object-cover" />
+          </div>
+          <div className="flex items-center justify-between bg-white/5 px-3 py-2">
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-white/60">Form score</span>
+            <span className="font-mono text-sm font-medium">86 / 100</span>
+          </div>
         </div>
-        <h2 className="text-[26px] font-black italic leading-8 tracking-tighter">{content.title}</h2>
-        <ul className="space-y-2.5">
+        <h2 className="text-[26px] font-semibold leading-8 tracking-[-0.02em]">{content.title}</h2>
+        <ul className="divide-y divide-white/10 border-y border-white/10">
           {content.points.map((point) => (
-            <li key={point} className="flex items-center gap-2.5 text-sm font-medium text-emerald-50">
-              <Icon name="check" className="h-4 w-4 text-emerald-200" strokeWidth={2.6} />
+            <li key={point} className="flex items-center gap-2.5 py-2.5 text-sm text-white/85">
+              <Icon name="check" className="h-4 w-4 text-accent-mid" strokeWidth={2.4} />
               {point}
             </li>
           ))}
@@ -219,7 +222,7 @@ function BrandPanel({ view, onToggle }) {
         <button
           type="button"
           onClick={onToggle}
-          className="self-start rounded-xl border-2 border-white/80 px-5 py-2.5 text-sm font-bold transition-colors hover:bg-white hover:text-accent active:scale-[0.97]"
+          className="h-10 self-start rounded-md border border-white/40 px-4 text-sm font-medium transition-colors hover:bg-white hover:text-ink"
         >
           {content.switchLabel}
         </button>
@@ -237,12 +240,12 @@ const LoginPage = ({ initialView = 'login' }) => {
 
   return (
     <section className="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-8">
-      <div className="relative w-full max-w-[880px] overflow-hidden rounded-3xl border border-slate-300 bg-white shadow-2xl sm:h-[620px]">
+      <div className="relative w-full max-w-[880px] overflow-hidden rounded-lg border border-line bg-surface sm:h-[620px]">
         <BrandPanel view={activeView} onToggle={toggleView} />
         <RegisterForm active={activeView === 'register'} onToggle={toggleView} />
         <LoginForm active={activeView === 'login'} onToggle={toggleView} />
       </div>
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 transition-colors hover:text-accent">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-2 transition-colors hover:text-accent">
         <Icon name="arrowLeft" className="h-4 w-4" />
         Back to home
       </Link>

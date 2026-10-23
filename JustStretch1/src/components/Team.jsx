@@ -13,13 +13,13 @@ const team = [
 
 export default function Team() {
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {team.map((person) => (
-        <li key={person.name} className={`${card} flex items-center gap-4 p-5`}>
-          <img src={person.image} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
+        <li key={person.name} className={`${card} flex items-center gap-4 p-4`}>
+          <img src={person.image} alt="" className="h-14 w-14 shrink-0 rounded-md object-cover" />
           <div className="min-w-0">
-            <h3 className="text-[15px] font-bold leading-snug">{person.name}</h3>
-            <p className="mt-0.5 text-[13px] font-medium leading-snug text-accent">{person.role}</p>
+            <h3 className="text-[15px] font-semibold leading-snug">{person.name}</h3>
+            <p className="mt-1 font-mono text-[11px] font-medium uppercase leading-snug tracking-[0.04em] text-muted">{person.role}</p>
           </div>
         </li>
       ))}
