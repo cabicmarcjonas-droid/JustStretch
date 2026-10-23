@@ -145,16 +145,16 @@ function ScoreForm({ exercise }) {
     <section ref={section} className={`${card} scroll-mt-20 p-6 sm:p-8`}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h2 className={sectionTitle}>How did it go?</h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           Session length{' '}
-          <span className="font-bold tabular-nums text-ink">
+          <span className="font-semibold tabular-nums text-ink">
             {seconds !== null && seconds !== '' ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : '—'}
           </span>
         </p>
       </div>
 
       {autoSaving && (
-        <p className="mt-2 text-xs text-slate-500" role="status">
+        <p className="mt-2 text-xs text-muted" role="status">
           Saving this session automatically…
         </p>
       )}
@@ -164,7 +164,7 @@ function ScoreForm({ exercise }) {
         </p>
       )}
       {saveError && (
-        <p className="mt-2 text-xs text-red-700" role="alert">
+        <p className="mt-2 text-xs text-danger" role="alert">
           Could not save automatically ({saveError}). Use the button below to save it.
         </p>
       )}
@@ -172,45 +172,45 @@ function ScoreForm({ exercise }) {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {/* Tracking results: filled in by the session-ended event */}
         {summary && (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+          <div className="rounded-lg border border-line bg-paper-2 p-5">
             {judged ? (
               <div>
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <h3 className="font-bold">Tracking results</h3>
-                    <p className="text-sm text-slate-500">
-                      <span className="font-bold tabular-nums text-ink">{summary.goodFrames}</span> of{' '}
+                    <h3 className="font-semibold">Tracking results</h3>
+                    <p className="text-sm text-muted">
+                      <span className="font-semibold tabular-nums text-ink">{summary.goodFrames}</span> of{' '}
                       <span className="tabular-nums">{summary.judgedFrames}</span> judged frames were within the margin of error.
                     </p>
                     {summary.totalReps > 1 && (
-                      <p className="mt-1 text-sm text-slate-500">
-                        Completed <span className="font-bold tabular-nums text-ink">{summary.repsCompleted}</span> of{' '}
+                      <p className="mt-1 text-sm text-muted">
+                        Completed <span className="font-semibold tabular-nums text-ink">{summary.repsCompleted}</span> of{' '}
                         <span className="tabular-nums">{summary.totalReps}</span> reps across{' '}
-                        <span className="font-bold tabular-nums text-ink">{summary.setsCompleted}</span> of{' '}
+                        <span className="font-semibold tabular-nums text-ink">{summary.setsCompleted}</span> of{' '}
                         <span className="tabular-nums">{summary.totalSets}</span> sets.
                       </p>
                     )}
                   </div>
-                  <span className="text-4xl font-black italic tracking-tighter tabular-nums text-accent">
+                  <span className="text-4xl font-mono font-medium tabular-nums text-accent">
                     {`${Math.round((100 * summary.goodFrames) / summary.judgedFrames)}%`}
                   </span>
                 </div>
 
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="text-xs text-slate-500">
+                    <thead className="text-xs text-muted">
                       <tr>
-                        <th className="py-1 text-left font-bold">Joint</th>
-                        <th className="py-1 text-right font-bold">Average error</th>
-                        <th className="py-1 text-right font-bold">Time in range</th>
+                        <th className="py-1 text-left font-semibold">Joint</th>
+                        <th className="py-1 text-right font-semibold">Average error</th>
+                        <th className="py-1 text-right font-semibold">Time in range</th>
                       </tr>
                     </thead>
                     <tbody>
                       {summary.joints.map((joint) => (
-                        <tr key={joint.name} className="border-t border-slate-200">
+                        <tr key={joint.name} className="border-t border-line">
                           <td className="py-2 capitalize">{joint.name.replace(/_/g, ' ')}</td>
                           <td className="py-2 text-right tabular-nums">{`${joint.meanErrorDeg.toFixed(1)}°`}</td>
-                          <td className={`py-2 text-right font-bold tabular-nums ${joint.inRangePct >= 80 ? 'text-accent' : 'text-red-700'}`}>
+                          <td className={`py-2 text-right font-semibold tabular-nums ${joint.inRangePct >= 80 ? 'text-accent' : 'text-danger'}`}>
                             {`${joint.inRangePct}%`}
                           </td>
                         </tr>
@@ -221,14 +221,14 @@ function ScoreForm({ exercise }) {
               </div>
             ) : (
               <div className="text-sm">
-                <h3 className="font-bold">No tracking score for this session</h3>
-                <p className="mt-1 text-slate-600">
+                <h3 className="font-semibold">No tracking score for this session</h3>
+                <p className="mt-1 text-ink-2">
                   {!summary.hasReference
                     ? 'This exercise has no reference pose yet, so rate your form yourself.'
                     : `Only ${summary.judgedFrames} frames could be judged (at least ${summary.minJudgedFrames} are needed). Keep your upper body fully in view and try again.`}
                 </p>
                 {summary.hasReference && summary.camera && (
-                  <p className="mt-1 text-slate-600">
+                  <p className="mt-1 text-ink-2">
                     {summary.camera === 'Cam_Side'
                       ? 'This stretch is tracked from the side: stand sideways to the camera.'
                       : 'This stretch is tracked from the front: face the camera.'}
@@ -241,8 +241,8 @@ function ScoreForm({ exercise }) {
 
         {saved ? (
           <div className={`space-y-3 ${summary ? '' : 'lg:col-span-2'}`} role="status">
-            <p className="font-bold">{saved.message}</p>
-            <Link to={`/sessions/${saved.sessionId}`} className="text-sm font-bold text-accent hover:underline">
+            <p className="font-semibold">{saved.message}</p>
+            <Link to={`/sessions/${saved.sessionId}`} className="text-sm font-semibold text-accent hover:underline">
               Open the saved session
             </Link>
           </div>
@@ -251,9 +251,9 @@ function ScoreForm({ exercise }) {
             <div>
               <div className="flex items-end justify-between">
                 <InputLabel htmlFor="score" value="Form score" />
-                <span className="text-3xl font-black italic tracking-tighter tabular-nums text-accent">{score ?? '—'}</span>
+                <span className="text-3xl font-mono font-medium tabular-nums text-accent">{score ?? '—'}</span>
               </div>
-              <p className="text-[13px] text-slate-500">How well did you hold the form? 0 = couldn&apos;t do it, 100 = perfect.</p>
+              <p className="text-[13px] text-muted">How well did you hold the form? 0 = couldn&apos;t do it, 100 = perfect.</p>
               {auto && <p className="text-[13px] font-semibold text-accent">Suggested from your camera tracking. You can adjust it before saving.</p>}
               <input
                 id="score"
@@ -264,9 +264,9 @@ function ScoreForm({ exercise }) {
                 step="1"
                 value={score ?? 50}
                 onChange={(event) => setScore(Number(event.target.value))}
-                className="mt-3 w-full accent-emerald-700"
+                className="mt-3 w-full accent-accent"
               />
-              <div className="flex justify-between text-xs text-slate-500">
+              <div className="flex justify-between text-xs text-muted">
                 <span>0</span>
                 <span>50</span>
                 <span>100</span>
@@ -277,7 +277,7 @@ function ScoreForm({ exercise }) {
 
             <div>
               <p className={labelClass}>How tired do you feel?</p>
-              <p className="text-[13px] text-slate-500">Optional. Your own rating of how tired your body felt at the end.</p>
+              <p className="text-[13px] text-muted">Optional. Your own rating of how tired your body felt at the end.</p>
               <div role="group" aria-label="Fatigue rating" className="mt-3 flex gap-2">
                 {[1, 2, 3, 4, 5].map((level) => (
                   <button
@@ -285,17 +285,17 @@ function ScoreForm({ exercise }) {
                     type="button"
                     onClick={() => setFatigue(fatigue === level ? null : level)}
                     aria-pressed={fatigue === level}
-                    className={`h-11 flex-1 rounded-xl border text-sm font-bold tabular-nums transition-colors ${
+                    className={`h-11 flex-1 rounded-md border text-sm font-semibold tabular-nums transition-colors ${
                       fatigue === level
                         ? 'border-accent bg-accent text-white'
-                        : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50'
+                        : 'border-line bg-surface text-ink-2 hover:border-line-strong hover:bg-paper-2'
                     }`}
                   >
                     {level}
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-[13px] text-slate-500">
+              <p className="mt-2 text-[13px] text-muted">
                 {fatigue == null ? 'Not set' : `${fatigue} — ${FATIGUE_LABELS[fatigue]}`}
               </p>
               <InputError messages={form.errors.fatigue} className="mt-2" />
@@ -362,7 +362,7 @@ function ReferenceVideo({ url }) {
       <Icon name="camera" className="h-8 w-8" strokeWidth={1.4} />
       <p className="text-sm font-semibold">{url ? 'This video plays on its original site.' : 'Demo video coming soon.'}</p>
       {url ? (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-emerald-300 underline underline-offset-2">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-accent-mid underline underline-offset-2">
           Open the video
         </a>
       ) : (
@@ -377,11 +377,11 @@ function StepCaption({ steps }) {
   const [index, setIndex] = useState(0)
   if (steps.length === 0) return null
   const stepButton =
-    'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition-colors hover:border-slate-400 disabled:opacity-40'
+    'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-line bg-surface text-ink-2 transition-colors hover:border-line-strong disabled:opacity-40'
 
   return (
     <div className={`${card} flex items-center gap-4 p-4 sm:p-5`}>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-base font-black text-white">{index + 1}</span>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent font-mono text-base font-medium text-white">{index + 1}</span>
       <div className="min-w-0 flex-1">
         <p className={statLabel}>
           Step {index + 1} of {steps.length}
@@ -422,25 +422,25 @@ function SessionBar({ exercise, stopButton }) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
       <div className={`${container} flex h-16 items-center gap-4`}>
         <Link
           to={exitTo}
           onClick={exit}
-          className="inline-flex items-center gap-1.5 rounded-xl px-2 py-2 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 hover:text-ink"
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-sm font-semibold text-ink-2 transition-colors hover:bg-paper-2 hover:text-ink"
         >
           <Icon name="x" className="h-4 w-4" strokeWidth={2.2} />
           Exit
         </Link>
         <div className="min-w-0 flex-1 text-center">
-          <p className="truncate text-base font-black italic tracking-tighter sm:text-lg">{exercise.title}</p>
-          <p className="truncate text-[11px] font-semibold text-slate-500">
+          <p className="truncate text-base font-semibold sm:text-lg">{exercise.title}</p>
+          <p className="truncate text-[11px] font-semibold text-muted">
             {exercise.durationMinutes} min · {exercise.sets ?? 1} {plural('set', exercise.sets ?? 1)} ×{' '}
             {exercise.repsPerSet ?? 1} {plural('rep', exercise.repsPerSet ?? 1)}
           </p>
         </div>
         <div className="hidden items-center gap-2 sm:flex">
-          <span className="text-xs font-black uppercase tracking-widest text-accent">{areaLabel(exercise.targetArea)}</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-accent">{areaLabel(exercise.targetArea)}</span>
           <DifficultyBadge difficulty={exercise.difficulty} />
         </div>
       </div>
@@ -464,7 +464,7 @@ export default function SessionCreate() {
     return (
       <SessionShell title="Session">
         <div className={`${container} py-10`}>
-          <p className={`text-sm ${error ? 'text-red-700' : 'text-slate-500'}`} role={error ? 'alert' : 'status'}>
+          <p className={`text-sm ${error ? 'text-danger' : 'text-muted'}`} role={error ? 'alert' : 'status'}>
             {loading ? 'Loading session…' : `Could not load this exercise: ${error?.message}`}
           </p>
         </div>
@@ -497,10 +497,10 @@ export default function SessionCreate() {
 
         <div className="grid gap-4 md:grid-cols-2">
           {exercise.precautions && (
-            <section className="flex gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-900" role="note">
+            <section className="flex gap-3 rounded-lg border border-caution/40 bg-caution-soft p-5 text-sm text-ink" role="note">
               <Icon name="warn" className="h-5 w-5 shrink-0" strokeWidth={1.8} />
               <div>
-                <h2 className="font-bold">Precautions</h2>
+                <h2 className="font-semibold">Precautions</h2>
                 <p className="mt-1 leading-relaxed">{exercise.precautions}</p>
               </div>
             </section>
@@ -509,8 +509,8 @@ export default function SessionCreate() {
           <section className={`${card} flex gap-3 p-5 text-sm`}>
             <Icon name="body" className="h-5 w-5 shrink-0 text-accent" />
             <div>
-              <h2 className="font-bold">Joints highlighted</h2>
-              <p className="mt-1 leading-relaxed text-slate-600">
+              <h2 className="font-semibold">Joints highlighted</h2>
+              <p className="mt-1 leading-relaxed text-ink-2">
                 Joints for the <strong className="text-ink">{area}</strong> are drawn larger in green; the rest of the skeleton is grey.{' '}
                 {highlightsHands(exercise.targetArea)
                   ? 'Your fingers are tracked too (21 points per hand) and drawn in green for this stretch.'

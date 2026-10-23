@@ -4,11 +4,11 @@ import { areaLandmarks, highlightsHands } from '../lib/enums.js'
 import { btn } from '../lib/ui.js'
 import { initPoseTracker } from './poseTracker.js'
 
-const tile = 'relative aspect-video overflow-hidden rounded-3xl bg-slate-900 shadow-card'
+const tile = 'relative aspect-video overflow-hidden rounded-lg border border-line bg-ink'
 // Slightly smaller on phones so Start, End session and the timer share one row.
-const stageButton = 'h-11 px-4 text-sm sm:h-12 sm:px-6 sm:text-base'
+const stageButton = 'h-10 px-4 text-sm sm:h-11 sm:px-5'
 const tileLabel =
-  'absolute left-3 top-3 z-10 rounded-full bg-slate-950/70 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur-sm'
+  'absolute left-3 top-3 z-10 rounded-sm bg-ink/80 px-2 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-white'
 
 // Two layouts, switched with CSS only (the section's data-layout attribute), so the reference
 // video and the tracker's DOM refs stay mounted and nothing restarts when you switch:
@@ -24,10 +24,10 @@ const readLayout = () => {
 }
 // Class names are written out in full so Tailwind can find them.
 const referenceMinimised =
-  'group-data-[layout=focus]:absolute group-data-[layout=focus]:bottom-3 group-data-[layout=focus]:right-3 group-data-[layout=focus]:z-20 group-data-[layout=focus]:w-[32%] group-data-[layout=focus]:min-w-36 group-data-[layout=focus]:rounded-2xl group-data-[layout=focus]:ring-2 group-data-[layout=focus]:ring-white/80'
+  'group-data-[layout=focus]:absolute group-data-[layout=focus]:bottom-3 group-data-[layout=focus]:right-3 group-data-[layout=focus]:z-20 group-data-[layout=focus]:w-[32%] group-data-[layout=focus]:min-w-36 group-data-[layout=focus]:rounded-md group-data-[layout=focus]:ring-2 group-data-[layout=focus]:ring-white/80'
 const segment = (active) =>
-  `rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
-    active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+  `h-8 px-3 text-xs font-medium transition-colors first:border-r first:border-line ${
+    active ? 'bg-ink text-white' : 'bg-surface text-ink-2 hover:bg-paper-2'
   }`
 
 // Camera half of the session page, laid out as a mirror: the reference tile (passed in as
@@ -113,8 +113,8 @@ export default function PoseStage({
       className="group grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 lg:data-[layout=focus]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
     >
       <div className="col-span-full flex items-center justify-end gap-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Layout</span>
-        <div role="group" aria-label="Session layout" className="inline-flex rounded-xl bg-slate-100 p-1">
+        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-muted">Layout</span>
+        <div role="group" aria-label="Session layout" className="inline-flex overflow-hidden rounded-md border border-line">
           <button type="button" aria-pressed={layout === 'split'} onClick={() => chooseLayout('split')} className={segment(layout === 'split')}>
             Video + camera
           </button>
@@ -138,9 +138,9 @@ export default function PoseStage({
 
           <div
             ref={overlay}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/75 px-6 text-center text-white/85"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-ink/80 px-6 text-center text-white/85"
           >
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10">
+            <span className="flex h-11 w-11 items-center justify-center rounded-md bg-white/10">
               <Icon name="camera" className="h-6 w-6" />
             </span>
             <p className="text-sm">
@@ -153,9 +153,9 @@ export default function PoseStage({
             ref={cameraWarning}
             role="alert"
             aria-live="assertive"
-            className="absolute inset-0 z-10 hidden flex-col items-center justify-center gap-4 bg-slate-950/90 px-6 text-center text-white"
+            className="absolute inset-0 z-10 hidden flex-col items-center justify-center gap-4 bg-ink/90 px-6 text-center text-white"
           >
-            <svg className="h-10 w-10 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <svg className="h-10 w-10 text-[#f2b65c]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -169,14 +169,14 @@ export default function PoseStage({
               <button
                 ref={retryButton}
                 type="button"
-                className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-slate-900 hover:bg-slate-100 disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-white px-4 text-sm font-medium text-ink hover:bg-paper-2 disabled:opacity-60"
               >
                 Retry camera
               </button>
               <button
                 ref={endSessionButton}
                 type="button"
-                className="inline-flex items-center justify-center rounded-xl border border-white/40 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/10"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-white/40 px-4 text-sm font-medium text-white hover:bg-white/10"
               >
                 End session
               </button>
@@ -188,7 +188,7 @@ export default function PoseStage({
 
       <div className="col-span-full min-w-0 empty:hidden">{children}</div>
 
-      <div className="col-span-full flex flex-wrap items-center gap-3 rounded-2xl border border-slate-300 bg-white p-3 shadow-card">
+      <div className="col-span-full flex flex-wrap items-center gap-2.5 rounded-lg border border-line bg-surface p-3">
         {/* Text-only buttons: the tracker rewrites Start's label to "Restart". */}
         <button ref={startButton} type="button" disabled className={`${btn.primary} ${stageButton} sm:min-w-28`}>
           Start
@@ -206,19 +206,19 @@ export default function PoseStage({
           role="status"
           aria-live="polite"
           data-tone="muted"
-          className="order-last min-w-0 basis-full text-sm sm:order-none sm:flex-1 sm:basis-48 text-slate-500 data-[tone=error]:text-red-700 data-[tone=ok]:text-accent data-[tone=warn]:text-amber-700"
+          className="order-last min-w-0 basis-full text-sm sm:order-none sm:flex-1 sm:basis-48 text-muted data-[tone=error]:text-danger data-[tone=ok]:text-accent data-[tone=warn]:text-caution"
         >
           Loading pose model…
         </p>
-        <span className="ms-auto inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-sm sm:ms-0">
-          <Icon name="clock" className="h-4 w-4 text-slate-500" />
-          <span ref={timer} className="font-black tabular-nums">
+        <span className="ms-auto inline-flex h-10 items-center gap-2 rounded-md bg-paper-2 px-3.5 text-sm sm:ms-0">
+          <Icon name="clock" className="h-4 w-4 text-muted" />
+          <span ref={timer} className="font-mono font-medium tabular-nums">
             00:00
           </span>
         </span>
         <span
           ref={setRep}
-          className="hidden items-center rounded-full border border-slate-100 bg-white px-5 py-2 text-sm font-bold tabular-nums shadow-sm"
+          className="hidden h-10 items-center rounded-md border border-line bg-surface px-3.5 font-mono text-sm font-medium tabular-nums"
         />
       </div>
 
@@ -227,37 +227,37 @@ export default function PoseStage({
           toggles `hidden` on the outer element, so the grid lives on the inner one. */}
       <div
         ref={livePanel}
-        className="col-span-full hidden rounded-2xl border border-slate-300 bg-white p-5 shadow-card lg:group-data-[layout=focus]:col-span-1 lg:group-data-[layout=focus]:col-start-2 lg:group-data-[layout=focus]:row-start-1 lg:group-data-[layout=focus]:self-start"
+        className="col-span-full hidden rounded-lg border border-line bg-surface p-5 lg:group-data-[layout=focus]:col-span-1 lg:group-data-[layout=focus]:col-start-2 lg:group-data-[layout=focus]:row-start-1 lg:group-data-[layout=focus]:self-start"
       >
         <div className="grid gap-5 md:grid-cols-[220px_1fr] lg:group-data-[layout=focus]:grid-cols-1">
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Live form</h2>
-            <span ref={liveScore} className="mt-1 block text-5xl font-black italic tracking-tighter tabular-nums text-accent">
+            <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-muted">Live form score</h2>
+            <span ref={liveScore} className="mt-1 block font-mono text-[44px] font-medium leading-none tabular-nums text-accent">
               —
             </span>
-            <p ref={liveFrames} className="mt-1 text-sm text-slate-500" />
-            <p ref={liveNote} className="mt-2 text-[13px] leading-snug text-slate-500" />
+            <p ref={liveFrames} className="mt-2 font-mono text-xs text-muted" />
+            <p ref={liveNote} className="mt-2 text-[13px] leading-snug text-ink-2" />
           </div>
           <div className="min-w-0 overflow-x-auto">
             <table ref={liveTable} className="w-full text-sm">
-              <thead className="text-xs uppercase tracking-wider text-slate-500">
+              <thead className="border-b border-line font-mono text-[11px] uppercase tracking-[0.04em] text-muted">
                 <tr>
-                  <th className="py-1 text-left font-bold">Joint</th>
-                  <th className="px-2 py-1 text-right font-bold">You</th>
-                  <th className="px-2 py-1 text-right font-bold">Target</th>
-                  <th className="px-2 py-1 text-right font-bold">Off by</th>
+                  <th className="py-1 text-left font-medium">Joint</th>
+                  <th className="px-2 py-1 text-right font-medium">You</th>
+                  <th className="px-2 py-1 text-right font-medium">Target</th>
+                  <th className="px-2 py-1 text-right font-medium">Off by</th>
                   <th className="py-1 pl-2">
                     <span className="sr-only">Status</span>
                   </th>
                 </tr>
               </thead>
-              <tbody ref={liveRows} className="divide-y divide-slate-200" />
+              <tbody ref={liveRows} className="divide-y divide-line font-mono" />
             </table>
           </div>
         </div>
       </div>
 
-      <p className="col-span-full flex items-start gap-2 text-xs text-slate-500">
+      <p className="col-span-full flex items-start gap-2 text-xs text-muted">
         <Icon name="lock" className="h-4 w-4 shrink-0" />
         Pose tracking runs only in this browser tab. No video frames or body landmarks are sent to the server. Only your score, the session
         length and any notes are saved.

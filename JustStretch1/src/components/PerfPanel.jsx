@@ -13,13 +13,13 @@ import { btn } from '../lib/ui.js'
 const fmt = (value, unit = '') => (value === null || value === undefined ? '—' : `${value}${unit}`)
 
 function Row({ metric, target, value, pass }) {
-  const tone = pass === null ? 'text-slate-500' : pass ? 'text-accent' : 'text-red-700'
+  const tone = pass === null ? 'text-muted' : pass ? 'text-accent' : 'text-danger'
   return (
-    <tr className="border-t border-slate-200">
+    <tr className="border-t border-line">
       <td className="py-2 pr-2">{metric}</td>
-      <td className="py-2 px-2 text-slate-500">{target}</td>
+      <td className="py-2 px-2 text-muted">{target}</td>
       <td className="py-2 px-2 text-right font-semibold tabular-nums">{value}</td>
-      <td className={`py-2 pl-2 text-right text-xs font-bold uppercase ${tone}`}>{pass === null ? 'n/a' : pass ? 'Pass' : 'Miss'}</td>
+      <td className={`py-2 pl-2 text-right text-xs font-semibold uppercase ${tone}`}>{pass === null ? 'n/a' : pass ? 'Pass' : 'Miss'}</td>
     </tr>
   )
 }
@@ -59,13 +59,13 @@ export default function PerfPanel({ log, saved, title }) {
   }
 
   return (
-    <section className="rounded-2xl border border-slate-300 bg-white p-6" aria-labelledby="perf-title">
+    <section className="rounded-lg border border-line bg-surface p-6" aria-labelledby="perf-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 id="perf-title" className="font-bold">
+          <h3 id="perf-title" className="font-semibold">
             Performance (test mode)
           </h3>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             {summary.frames} frames over {summary.seconds} s, after skipping {summary.warmupFramesIgnored} warm-up frames. Latency is
             measured from {summary.latencyBasis ?? 'the frame callback'}.
           </p>
@@ -82,12 +82,12 @@ export default function PerfPanel({ log, saved, title }) {
 
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-xs text-slate-500">
+          <thead className="text-xs text-muted">
             <tr>
-              <th className="py-1 text-left font-bold">Metric</th>
-              <th className="py-1 px-2 text-left font-bold">Target</th>
-              <th className="py-1 px-2 text-right font-bold">Measured</th>
-              <th className="py-1 text-right font-bold">Result</th>
+              <th className="py-1 text-left font-semibold">Metric</th>
+              <th className="py-1 px-2 text-left font-semibold">Target</th>
+              <th className="py-1 px-2 text-right font-semibold">Measured</th>
+              <th className="py-1 text-right font-semibold">Result</th>
             </tr>
           </thead>
           <tbody>
@@ -100,34 +100,34 @@ export default function PerfPanel({ log, saved, title }) {
 
       {delayTest.length > 0 && (
         <div className="mt-6">
-          <h4 className="font-bold">Test Case 2: injected delays</h4>
-          <p className="text-sm text-slate-500">
+          <h4 className="font-semibold">Test Case 2: injected delays</h4>
+          <p className="text-sm text-muted">
             Frames the camera produced during a delay should be skipped (dropped), and latency should drop back under 100 ms.
           </p>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-xs text-slate-500">
+              <thead className="text-xs text-muted">
                 <tr>
-                  <th className="py-1 text-left font-bold">Delayed frame</th>
-                  <th className="py-1 px-2 text-right font-bold">Delay</th>
-                  <th className="py-1 px-2 text-right font-bold">Skipped during it</th>
-                  <th className="py-1 px-2 text-right font-bold">Next frame</th>
-                  <th className="py-1 px-2 text-right font-bold">Next latency</th>
-                  <th className="py-1 text-right font-bold">Frames to recover</th>
+                  <th className="py-1 text-left font-semibold">Delayed frame</th>
+                  <th className="py-1 px-2 text-right font-semibold">Delay</th>
+                  <th className="py-1 px-2 text-right font-semibold">Skipped during it</th>
+                  <th className="py-1 px-2 text-right font-semibold">Next frame</th>
+                  <th className="py-1 px-2 text-right font-semibold">Next latency</th>
+                  <th className="py-1 text-right font-semibold">Frames to recover</th>
                 </tr>
               </thead>
               <tbody>
                 {delayTest.map((entry) => (
-                  <tr key={entry.frameId} className="border-t border-slate-200 tabular-nums">
+                  <tr key={entry.frameId} className="border-t border-line tabular-nums">
                     <td className="py-2">
                       #{entry.frameId}
-                      {entry.sourceFrame != null && <span className="text-slate-500"> (camera {entry.sourceFrame})</span>}
+                      {entry.sourceFrame != null && <span className="text-muted"> (camera {entry.sourceFrame})</span>}
                     </td>
                     <td className="py-2 px-2 text-right">{entry.injectedMs} ms</td>
                     <td className="py-2 px-2 text-right">{fmt(entry.droppedAfter)}</td>
                     <td className="py-2 px-2 text-right">{entry.nextFrameId ? `#${entry.nextFrameId}` : '—'}</td>
                     <td className="py-2 px-2 text-right">{fmt(entry.nextLatencyMs, ' ms')}</td>
-                    <td className={`py-2 text-right font-bold ${entry.recovered ? 'text-accent' : 'text-red-700'}`}>
+                    <td className={`py-2 text-right font-semibold ${entry.recovered ? 'text-accent' : 'text-danger'}`}>
                       {entry.recovered ? entry.framesToRecover : 'Not yet'}
                     </td>
                   </tr>
