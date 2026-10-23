@@ -1,18 +1,18 @@
 import { Link } from 'react-router-dom'
 import { btn } from '../lib/ui.js'
 
-const square = 'inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-bold'
+const square = 'inline-flex h-9 min-w-9 items-center justify-center rounded-md px-3 text-sm font-medium'
 
 function PageLink({ to, page, children, label }) {
   if (page === null) {
     return (
-      <span aria-disabled="true" className={`${btn.secondary} ${btn.md} opacity-50 cursor-default`}>
+      <span aria-disabled="true" className={`${btn.secondary} h-9 px-3 text-sm cursor-default text-muted opacity-60`}>
         {children}
       </span>
     )
   }
   return (
-    <Link to={to(page)} aria-label={label} className={`${btn.secondary} ${btn.md}`}>
+    <Link to={to(page)} aria-label={label} className={`${btn.secondary} h-9 px-3 text-sm`}>
       {children}
     </Link>
   )
@@ -32,10 +32,10 @@ export default function Pagination({ meta, perPage, to, noun = 'results' }) {
     <nav role="navigation" aria-label="Pagination Navigation" className="flex flex-wrap items-center justify-between gap-4">
       <p className="text-sm text-muted">
         Showing{' '}
-        <span className="font-semibold text-ink">
+        <span className="font-medium text-ink">
           {from}–{upTo}
         </span>{' '}
-        of <span className="font-semibold text-ink">{total}</span> {noun}
+        of <span className="font-medium text-ink">{total}</span> {noun}
       </p>
 
       <div className="flex items-center gap-2">
@@ -53,7 +53,7 @@ export default function Pagination({ meta, perPage, to, noun = 'results' }) {
                 key={number}
                 to={to(number)}
                 aria-label={`Go to page ${number}`}
-                className={`${square} border border-slate-300 bg-white text-ink hover:bg-slate-50`}
+                className={`${square} border border-line-strong bg-surface text-ink hover:bg-paper-2`}
               >
                 {number}
               </Link>

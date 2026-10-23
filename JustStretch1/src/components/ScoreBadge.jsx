@@ -1,11 +1,11 @@
-export default function ScoreBadge({ score, className = '' }) {
-  const tone = score >= 80 ? 'bg-accent text-white' : score >= 50 ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'
+import { scoreTone, scoreWord, tag } from '../lib/ui.js'
 
+// Score in mono plus a status tag: In range (80+), Fair (50-79), Low (below 50).
+export default function ScoreBadge({ score, className = '', withWord = true }) {
   return (
-    <span
-      className={`inline-flex min-w-11 items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums ${tone} ${className}`}
-    >
-      {score}
+    <span className={`inline-flex items-center gap-1.5 ${className}`}>
+      <span className="font-mono text-sm font-medium tabular-nums text-ink">{score}</span>
+      {withWord && <span className={tag[scoreTone(score)]}>{scoreWord(score)}</span>}
     </span>
   )
 }

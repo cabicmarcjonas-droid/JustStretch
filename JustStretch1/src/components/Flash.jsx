@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { on } from '../lib/eventBus.js'
-import { container } from '../lib/ui.js'
 
 // Flash messages reach a page through router state (`navigate(path, { state: { flash } })`)
 // or, for in-page actions, through the event bus (`emit('flash', message)`).
@@ -46,10 +45,10 @@ function FlashMessage({ text, onClose }) {
 
   return (
     <div
-      className={`${container} mt-6 transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
+      className={`mb-4 transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
       role="status"
     >
-      <div className="flex items-start justify-between gap-4 rounded-2xl border border-emerald-200 bg-accent-soft px-4 py-3 text-sm font-medium text-accent-dark">
+      <div className="flex items-start justify-between gap-4 rounded-md border border-accent-mid bg-accent-soft px-4 py-3 text-sm font-medium text-accent-dark">
         <p>{text}</p>
         <button
           type="button"

@@ -24,7 +24,7 @@ const guestOnly = (page) => <GuestOnly>{page}</GuestOnly>
 const sessionPage = (
   <Suspense
     fallback={
-      <div className="flex min-h-screen items-center justify-center text-sm text-slate-500" role="status">
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted" role="status">
         Loading…
       </div>
     }

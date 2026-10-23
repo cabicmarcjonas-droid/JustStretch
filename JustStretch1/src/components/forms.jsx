@@ -20,7 +20,7 @@ export const TextInput = forwardRef(function TextInput({ className = '', ...prop
 export function InputError({ messages, className = '' }) {
   if (!messages || messages.length === 0) return null
   return (
-    <ul className={`text-sm text-red-700 space-y-1 ${className}`}>
+    <ul className={`space-y-1 text-sm text-danger ${className}`}>
       {[].concat(messages).map((message) => (
         <li key={message}>{message}</li>
       ))}

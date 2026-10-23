@@ -1,23 +1,35 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/forms";
 
-/* JustStretch1 look: emerald on slate, bold italic headings, soft mesh background.
-   The token names are the ones the pages use (bg-accent, text-ink, border-line...).
-   accent is emerald-700 so white text on it passes WCAG AA (emerald-600 was 3.8:1). */
+/* Clinical look: cool near-white paper, one deep green accent, IBM Plex Sans with Plex Mono
+   for numbers and labels, 1px rules instead of shadows. Amber marks cautions, red marks
+   destructive actions and low scores. Text colours on their backgrounds pass WCAG AA
+   (accent on paper 6.0:1, white on accent 6.2:1, caution on caution-soft 5.0:1). */
 @theme {
-  --color-ink: #0f172a;          /* slate-900 */
-  --color-paper: #ffffff;
-  --color-line: #e2e8f0;         /* slate-200 */
-  --color-muted: #64748b;        /* slate-500 */
-  --color-accent: #047857;       /* emerald-700 */
-  --color-accent-dark: #065f46;  /* emerald-800 */
-  --color-accent-soft: #ecfdf5;  /* emerald-50 */
+  --color-ink: #0f1d1e;
+  --color-ink-2: #314041;
+  --color-paper: #f8fbfa;
+  --color-paper-2: #eef5f3;
+  --color-surface: #ffffff;
+  --color-line: #d9e2e1;
+  --color-line-strong: #c2cdcc;
+  --color-muted: #5f6c6c;
+  --color-accent: #086e53;
+  --color-accent-dark: #00563f;
+  --color-accent-soft: #dff7ec;
+  --color-accent-mid: #83c8ae;
+  --color-caution: #935a11;
+  --color-caution-soft: #fdeed6;
+  --color-danger: #a83634;
+  --color-danger-soft: #ffeae8;
+  --color-danger-line: #e7b8b6;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
 
-  /* Cards: a tight 1px edge plus a soft lift. */
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.06), 0 6px 16px -4px rgb(15 23 42 / 0.1);
+  /* Surfaces are flat; the 1px rule does the separating. */
+  --shadow-card: 0 0 #0000;
 }
 
 @layer base {
@@ -26,12 +38,7 @@
   }
 
   body {
-    @apply font-sans text-slate-900 antialiased;
-    background:
-      radial-gradient(at 0% 0%, hsla(160, 84%, 93%, 1) 0, transparent 50%),
-      radial-gradient(at 100% 0%, hsla(180, 76%, 92%, 1) 0, transparent 50%),
-      #ffffff;
-    background-repeat: no-repeat;
+    @apply bg-paper font-sans text-ink antialiased;
     min-height: 100vh;
   }
 }

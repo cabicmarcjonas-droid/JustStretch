@@ -1,87 +1,66 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import Flash from '../components/Flash.jsx'
-import Navbar from '../components/Navbar.jsx'
-import SiteFooter from '../components/SiteFooter.jsx'
+import Icon from '../components/Icon.jsx'
+import { Wordmark } from '../components/Mark.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { initials } from '../lib/format.js'
 import { usePageTitle } from '../lib/hooks.js'
-import { container } from '../lib/ui.js'
+import { appMain } from '../lib/ui.js'
 
 const LINKS = [
-  { to: '/dashboard', label: 'Dashboard', end: true },
-  { to: '/exercises', label: 'Exercises' },
-  { to: '/sessions', label: 'My Sessions' },
-  { to: '/profile', label: 'Profile' },
+  { to: '/dashboard', label: 'Dashboard', icon: 'grid', end: true },
+  { to: '/exercises', label: 'Exercises', icon: 'list' },
+  { to: '/sessions', label: 'My sessions', icon: 'clock' },
+  { to: '/profile', label: 'Profile', icon: 'user' },
 ]
 
-const menuItem =
-  'block w-full px-4 py-2.5 text-start text-sm font-bold text-slate-600 hover:bg-accent-soft hover:text-accent focus:outline-none focus:bg-accent-soft'
+const itemClass = ({ isActive }) =>
+  `flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] transition-colors ${
+    isActive ? 'bg-accent-soft font-semibold text-accent-dark' : 'font-medium text-ink-2 hover:bg-paper-2 hover:text-ink'
+  }`
 
-function UserMenu({ user, onLogout }) {
-  const [open, setOpen] = useState(false)
-  const root = useRef(null)
-
-  useEffect(() => {
-    if (!open) return undefined
-    const close = (event) => {
-      if (event.type === 'keydown' ? event.key === 'Escape' : !root.current?.contains(event.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', close)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', close)
-    }
-  }, [open])
-
+function NavLinks({ onNavigate }) {
   return (
-    <div className="relative" ref={root}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1 ps-1 pe-3 text-sm font-bold text-slate-700 transition-colors hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent">
-          {initials(user.name)}
-        </span>
-        {user.name.split(' ')[0]}
-        <svg className="h-4 w-4 fill-current text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" aria-hidden="true">
-          <path
-            fillRule="evenodd"
-            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
+    <ul className="space-y-1">
+      {LINKS.map((link) => (
+        <li key={link.to}>
+          <NavLink to={link.to} end={link.end} className={itemClass} onClick={onNavigate}>
+            {({ isActive }) => (
+              <>
+                <Icon name={link.icon} className={`h-[18px] w-[18px] ${isActive ? 'text-accent-dark' : 'text-ink-2'}`} />
+                {link.label}
+              </>
+            )}
+          </NavLink>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
-      {open && (
-        <div
-          className="absolute end-0 z-50 mt-2 w-52 origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-card"
-          role="menu"
-          onClick={() => setOpen(false)}
-        >
-          <div className="border-b border-slate-100 px-4 py-2.5">
-            <p className="truncate text-sm font-bold text-ink">{user.name}</p>
-            <p className="truncate text-xs text-slate-500">{user.email}</p>
-          </div>
-          <Link to="/profile" className={menuItem} role="menuitem">
-            Account settings
-          </Link>
-          <button type="button" onClick={onLogout} className={menuItem} role="menuitem">
-            Log Out
-          </button>
-        </div>
-      )}
+function Account({ user, onLogout }) {
+  return (
+    <div className="flex items-center gap-3 border-t border-line px-2 pt-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-paper-2 text-xs font-semibold text-ink-2">
+        {initials(user.name)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
+        <button type="button" onClick={onLogout} className="text-[13px] text-muted hover:text-ink">
+          Log out
+        </button>
+      </div>
     </div>
   )
 }
 
+// Signed-in pages: a side rail on desktop (N3), a top bar with a drawer on phones.
+// `header` renders above the flash message and the page body.
 export default function AppLayout({ title, header, children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
   usePageTitle(title)
 
   const handleLogout = async () => {
@@ -89,38 +68,52 @@ export default function AppLayout({ title, header, children }) {
     navigate('/')
   }
 
-  const mobileAccount = (
-    <div className="mt-2 border-t border-slate-200 pt-3">
-      <div className="px-3">
-        <div className="text-sm font-black text-ink">{user.name}</div>
-        <div className="text-xs font-medium text-slate-500">{user.email}</div>
-      </div>
-      <div className="mt-2 space-y-1">
-        <Link to="/profile" className="block rounded-xl px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-accent">
-          Account settings
-        </Link>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="block w-full rounded-xl px-3 py-2.5 text-start text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-accent"
-        >
-          Log Out
-        </button>
-      </div>
-    </div>
-  )
-
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navbar home="/dashboard" links={LINKS} actions={<UserMenu user={user} onLogout={handleLogout} />} mobileActions={mobileAccount} />
+    <div className="min-h-screen lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface px-4 pb-4 pt-5 lg:flex">
+        <Link to="/dashboard" className="mb-6 px-2">
+          <Wordmark size="sm" />
+        </Link>
+        <nav aria-label="Main" className="flex-1">
+          <NavLinks />
+        </nav>
+        <Account user={user} onLogout={handleLogout} />
+      </aside>
 
-      {header && <header className={`${container} pt-8 sm:pt-10`}>{header}</header>}
+      <div className="sticky top-0 z-40 border-b border-line bg-surface lg:hidden">
+        <div className="flex h-14 items-center justify-between px-4">
+          <Link to="/dashboard">
+            <Wordmark size="sm" />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="-me-2 rounded-md p-2 text-ink-2 hover:bg-paper-2"
+            aria-label="Toggle menu"
+            aria-expanded={open}
+          >
+            <Icon name={open ? 'x' : 'menu'} className="h-6 w-6" />
+          </button>
+        </div>
+        {open && (
+          <nav aria-label="Main" className="space-y-3 border-t border-line px-3 pb-3 pt-2">
+            <NavLinks onNavigate={() => setOpen(false)} />
+            <Account user={user} onLogout={handleLogout} />
+          </nav>
+        )}
+      </div>
 
-      <Flash />
-
-      <main className="flex-1">{children}</main>
-
-      <SiteFooter>JustStretch is a guide, not a diagnosis. Stop any stretch that causes sharp pain.</SiteFooter>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className={`${appMain} flex-1`}>
+          {header && <header className="mb-6">{header}</header>}
+          <Flash />
+          <main>{children}</main>
+        </div>
+        <footer className="flex flex-col gap-1 border-t border-line px-4 py-4 text-xs text-muted sm:flex-row sm:justify-between sm:px-8 lg:px-10">
+          <p>© 2026 JustStretch · student research project</p>
+          <p className="font-mono">Not a medical device. Stop any stretch that causes sharp pain.</p>
+        </footer>
+      </div>
     </div>
   )
 }

@@ -26,6 +26,12 @@ const PATHS = {
   chevronLeft: 'M15.75 19.5L8.25 12l7.5-7.5',
   chevronRight: 'M8.25 4.5l7.5 7.5-7.5 7.5',
   play: 'M8 5.14v13.72a1 1 0 001.5.86l11-6.86a1 1 0 000-1.72l-11-6.86A1 1 0 008 5.14z',
+  grid: 'M4 13h6V4H4zm10 7h6v-9h-6zM4 20h6v-4H4zm10-11h6V4h-6z',
+  list: 'M4 6h16M4 12h16M4 18h10',
+  menu: 'M4 6h16M4 12h16M4 18h16',
+  logout: 'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9',
+  chevronDown: 'M6 9l6 6 6-6',
+  ban: 'M18.36 5.64A9 9 0 115.64 18.36 9 9 0 0118.36 5.64zM5.64 18.36L18.36 5.64',
 }
 
 export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.8 }) {
@@ -44,9 +50,9 @@ export default function Icon({ name, className = 'h-5 w-5', strokeWidth = 1.8 })
 }
 
 // Icon on a soft green square, used for feature lists and contact rows.
-export function IconTile({ name, size = 'h-11 w-11', iconSize = 'h-5 w-5' }) {
+export function IconTile({ name, size = 'h-10 w-10', iconSize = 'h-5 w-5' }) {
   return (
-    <span className={`flex shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent ${size}`}>
+    <span className={`flex shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent ${size}`}>
       <Icon name={name} className={iconSize} />
     </span>
   )
@@ -54,13 +60,11 @@ export function IconTile({ name, size = 'h-11 w-11', iconSize = 'h-5 w-5' }) {
 
 export function PrivacyBand({ className = '' }) {
   return (
-    <div className={`flex flex-col gap-4 rounded-3xl border border-emerald-200 bg-accent-soft p-6 sm:flex-row sm:items-center sm:gap-5 sm:p-8 ${className}`}>
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-accent">
-        <Icon name="lock" className="h-6 w-6" />
-      </span>
+    <div className={`flex flex-col gap-4 rounded-lg border border-accent-mid bg-accent-soft p-5 sm:flex-row sm:items-start sm:gap-4 sm:p-6 ${className}`}>
+      <Icon name="lock" className="h-5 w-5 shrink-0 text-accent-dark" />
       <div>
-        <h3 className="text-lg font-bold text-emerald-900">Private by design</h3>
-        <p className="mt-1 text-[15px] leading-relaxed text-emerald-900">
+        <h3 className="font-mono text-xs font-medium uppercase tracking-[0.04em] text-accent-dark">Private by design</h3>
+        <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2">
           Pose tracking runs entirely in your browser. Camera frames and body landmarks never leave your device. We only save the
           score, duration and notes you choose to submit.
         </p>

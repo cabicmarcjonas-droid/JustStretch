@@ -11,7 +11,7 @@ const CameraIcon = ({ className }) => (
   </svg>
 )
 
-// Poster frame from the exercise's reference video, or a green placeholder when there is none.
+// Poster frame from the exercise's reference video, or a grey placeholder when there is none.
 // `label` shows "Video coming soon" on large placeholders; small ones only show the icon.
 export default function Thumbnail({ videoUrl, className = '', label = false, children }) {
   const src = thumbnailFor(videoUrl)
@@ -19,13 +19,13 @@ export default function Thumbnail({ videoUrl, className = '', label = false, chi
   const [failedSrc, setFailedSrc] = useState(null)
 
   return (
-    <div className={`relative overflow-hidden bg-accent-soft ${className}`}>
+    <div className={`relative overflow-hidden bg-paper-2 ${className}`}>
       {src && failedSrc !== src ? (
         <img src={src} alt="" loading="lazy" onError={() => setFailedSrc(src)} className="h-full w-full object-cover" />
       ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-accent">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted">
           <CameraIcon className={label ? 'h-7 w-7' : 'h-5 w-5'} />
-          {label && <span className="text-sm font-semibold">Video coming soon</span>}
+          {label && <span className="text-sm font-medium">No video yet</span>}
         </div>
       )}
       {children}

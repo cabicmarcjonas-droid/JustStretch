@@ -5,29 +5,36 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { usePageTitle } from '../lib/hooks.js'
 
 const LINKS = [
+  { to: '/#how-it-works', label: 'How it works' },
+  { to: '/#privacy', label: 'Privacy' },
   { to: '/about', label: 'About' },
-  { to: { pathname: '/', hash: '#contact' }, label: 'Contact' },
+  { to: '/#contact', label: 'Contact' },
 ]
 
 export default function PublicLayout({ title, children }) {
   const { user } = useAuth()
   usePageTitle(title)
 
-  const action = user ? (
+  const actions = user ? (
     <Link to="/dashboard" className={navButton}>
       Dashboard
     </Link>
   ) : (
-    <Link to="/login" className={navButton}>
-      Log in
-    </Link>
+    <>
+      <Link to="/login" className="text-[15px] font-medium text-ink hover:text-accent">
+        Log in
+      </Link>
+      <Link to="/register" className={navButton}>
+        Create account
+      </Link>
+    </>
   )
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar links={LINKS} actions={action} mobileActions={<div className="pt-2">{action}</div>} />
+      <Navbar links={LINKS} actions={actions} />
       <main className="flex-1">{children}</main>
-      <SiteFooter>Not a substitute for medical advice.</SiteFooter>
+      <SiteFooter />
     </div>
   )
 }

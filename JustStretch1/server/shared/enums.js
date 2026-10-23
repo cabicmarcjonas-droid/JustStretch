@@ -15,9 +15,9 @@ export const BODY_AREAS = [
 ]
 
 export const DIFFICULTIES = [
-  { value: 'beginner', label: 'Beginner', badgeClasses: 'bg-accent-soft text-accent-dark border-accent/20' },
-  { value: 'intermediate', label: 'Intermediate', badgeClasses: 'bg-amber-50 text-amber-800 border-amber-200' },
-  { value: 'advanced', label: 'Advanced', badgeClasses: 'bg-rose-50 text-rose-800 border-rose-200' },
+  { value: 'beginner', label: 'Beginner', badgeClasses: 'bg-accent-soft text-accent-dark' },
+  { value: 'intermediate', label: 'Intermediate', badgeClasses: 'bg-caution-soft text-caution' },
+  { value: 'advanced', label: 'Advanced', badgeClasses: 'bg-danger-soft text-danger' },
 ]
 
 export const BODY_AREA_VALUES = BODY_AREAS.map((a) => a.value)
