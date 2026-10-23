@@ -4,15 +4,52 @@ import Contact from '../components/Contact.jsx'
 import Icon from '../components/Icon.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import PublicLayout from '../layouts/PublicLayout.jsx'
-import { btn, card, container, displayTitle, h2, lede, link, statLabel } from '../lib/ui.js'
+import { btn, card, container, statLabel } from '../lib/ui.js'
 
-// Example values for the hero readout. They show what a session looks like, not anyone's data.
+// Type sizes for this page only, so the app pages keep their own scale.
+const display = 'min-w-0 text-balance text-[42px] font-semibold leading-[1.04] tracking-[-0.03em] [overflow-wrap:break-word] sm:text-[60px] lg:text-[76px]'
+const sectionHead = 'min-w-0 text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] [overflow-wrap:break-word] sm:text-[44px] lg:text-[52px]'
+const itemHead = 'text-[22px] font-semibold leading-tight tracking-[-0.01em] sm:text-[25px]'
+const lead = 'text-[18px] leading-relaxed text-ink-2 sm:text-[21px]'
+
+// Library stand-in for the hero. Swap the src for a photo of your own (someone stretching at home).
+const HERO_PHOTO = {
+  src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Naam_Yoga_LA_Class.jpg/1920px-Naam_Yoga_LA_Class.jpg',
+  srcSet: [960, 1280, 1920]
+    .map((w) => `https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Naam_Yoga_LA_Class.jpg/${w}px-Naam_Yoga_LA_Class.jpg ${w}w`)
+    .join(', '),
+  alt: 'A group stretching their arms overhead in a bright studio',
+}
+
+const CREDITS = (
+  <>
+    Photographs:{' '}
+    <a href="https://commons.wikimedia.org/wiki/File:Naam_Yoga_LA_Class.jpg" target="_blank" rel="noopener noreferrer">
+      Drmirshak
+    </a>{' '}
+    (CC BY-SA 3.0, Wikimedia Commons)
+  </>
+)
+
+// Example values for the readout. They show what a session looks like, not anyone's data.
 const READOUT = [
   { joint: 'Neck tilt', measured: 31, target: 35 },
   { joint: 'Left shoulder', measured: 8, target: 6 },
   { joint: 'Right shoulder', measured: 14, target: 4 },
 ]
 const TOLERANCE = 10
+
+const STOP = ['Sharp or worsening pain', 'Numbness or tingling spreading into an arm or leg', 'Dizziness', 'Pain from a recent injury or surgery']
+
+const FAQ = [
+  ['Do I need any equipment?', 'A laptop or phone with a webcam, and enough space to be seen from head to hips. Nothing else.'],
+  [
+    'Which body areas are covered?',
+    'Neck, shoulders, chest, back, hips, legs and wrists. Stretches with a 3D reference video get a live score from the camera; the rest use a score you rate yourself.',
+  ],
+  ['Is it free?', 'Yes. You need an account to save sessions and see your history.'],
+  ['Who made this?', 'Four IT students at José Rizal University in Mandaluyong City, as a research project on browser-based pose tracking.'],
+]
 
 // One deviation bar: the shaded band is the tolerance, the tick is the target, the dot is you.
 function DeviationBar({ deviation }) {
@@ -23,59 +60,8 @@ function DeviationBar({ deviation }) {
       <rect x="4" y="8" width="112" height="2" rx="1" className="fill-line" />
       <rect x="20" y="5" width="80" height="8" rx="2" className="fill-accent-soft" />
       <rect x="59" y="3" width="2" height="12" className="fill-ink-2" />
-      <circle cx={x} cy="9" r="5" className={off ? 'fill-caution' : 'fill-accent'} stroke="#fff" strokeWidth="1.5" />
+      <circle cx={x} cy="9" r="5" className={`stroke-surface ${off ? 'fill-caution' : 'fill-accent'}`} strokeWidth="1.5" />
     </svg>
-  )
-}
-
-function Readout() {
-  return (
-    <figure className={`${card} overflow-hidden`} aria-label="Example of the live readout during a session">
-      <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <p className="flex items-baseline gap-2.5">
-          <span className="text-[15px] font-semibold">Neck Side Tilt</span>
-          <span className={statLabel}>Step 2 of 4</span>
-        </p>
-        <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-accent">
-          Live <span className="font-mono">01:24</span>
-        </span>
-      </div>
-      <div className="flex gap-4 p-4">
-        <img src="/thumbs/neck_side_tilt.jpg" alt="" className="hidden h-[200px] w-[160px] shrink-0 rounded-md object-cover sm:block" />
-        <div className="min-w-0 flex-1">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left">
-                <th className={`${statLabel} pb-2 font-medium`}>Joint</th>
-                <th className={`${statLabel} pb-2 text-right font-medium`}>Meas.</th>
-                <th className={`${statLabel} pb-2 text-right font-medium`}>Target</th>
-                <th className={`${statLabel} hidden pb-2 pl-3 font-medium sm:table-cell`}>Deviation (±{TOLERANCE}°)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {READOUT.map((row) => (
-                <tr key={row.joint} className="border-b border-line">
-                  <td className="py-2.5 font-medium">{row.joint}</td>
-                  <td className="py-2.5 text-right font-mono">{row.measured}°</td>
-                  <td className="py-2.5 text-right font-mono text-muted">{row.target}°</td>
-                  <td className="hidden py-2.5 pl-3 sm:table-cell">
-                    <DeviationBar deviation={row.measured - row.target} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="mt-3 flex items-center gap-2 rounded-md bg-caution-soft px-3 py-2 text-[13px] font-medium text-caution">
-            <Icon name="warn" className="h-4 w-4 shrink-0" />
-            Right shoulder is 10° above target. Lower it.
-          </p>
-        </div>
-      </div>
-      <figcaption className="flex items-center justify-between border-t border-line bg-paper-2 px-4 py-2.5">
-        <span className={statLabel}>Form score</span>
-        <span className="font-mono text-[15px] font-medium">86 / 100</span>
-      </figcaption>
-    </figure>
   )
 }
 
@@ -95,77 +81,75 @@ function AngleDiagram() {
       <path d="M280 196L322 80" className="stroke-accent" strokeWidth="4" strokeLinecap="round" />
       <circle cx="330" cy="56" r="26" className="stroke-ink-2" strokeWidth="3" fill="none" />
       <path d="M280 136A60 60 0 0 1 300.5 139.6" className="stroke-accent" strokeWidth="3" strokeLinecap="round" fill="none" />
-      <circle cx="280" cy="196" r="7" className="fill-accent" stroke="#fff" strokeWidth="2" />
+      <circle cx="280" cy="196" r="7" className="fill-accent stroke-surface" strokeWidth="2" />
       <circle cx="150" cy="200" r="5" className="fill-ink-2" />
       <circle cx="410" cy="200" r="5" className="fill-ink-2" />
-      <text x="96" y="104" className="fill-accent text-[14px]">
+      <text x="96" y="104" className="fill-accent text-[15px]">
         Measured 31°
       </text>
-      <text x="352" y="128" className="fill-ink-2 text-[14px]">
+      <text x="352" y="128" className="fill-ink-2 text-[15px]">
         Target 35°
       </text>
-      <text x="80" y="282" className="fill-muted text-[13px]">
+      <text x="80" y="282" className="fill-muted text-[14px]">
         Neck tilt within the ±10° tolerance: in range
       </text>
     </svg>
   )
 }
 
-function FlowBox({ title, items, highlight = false }) {
+function Readout() {
   return (
-    <div className={`min-w-0 flex-1 rounded-md border p-4 ${highlight ? 'border-accent-mid bg-accent-soft' : 'border-line bg-paper'}`}>
-      <p className={`text-[13px] font-medium ${highlight ? 'text-accent-dark' : 'text-muted'}`}>{title}</p>
-      <ul className="mt-2 space-y-1 text-sm font-medium">
-        {items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function DataFlow() {
-  const arrow = <Icon name="arrowRight" className="h-5 w-5 shrink-0 rotate-90 self-center text-ink-2 sm:rotate-0" />
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-        <FlowBox title="Your camera" items={['Video frames']} />
-        {arrow}
-        <FlowBox title="This browser tab" items={['Pose landmarks', 'Joint angles', 'Live score']} highlight />
-        {arrow}
-        <FlowBox title="JustStretch server" items={['Score', 'Duration', 'Your notes']} />
+    <figure className={`${card} overflow-hidden`} aria-label="Example of the live readout during a session">
+      <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
+        <p className="flex items-baseline gap-3">
+          <span className="text-base font-semibold">Neck Side Tilt</span>
+          <span className={statLabel}>Step 2 of 4</span>
+        </p>
+        <span className="text-[13px] font-medium text-accent">
+          Live <span className="font-mono">01:24</span>
+        </span>
       </div>
-      <p className="flex items-center gap-2.5 rounded-md border border-line bg-surface px-4 py-3 text-sm font-medium text-danger">
-        <Icon name="ban" className="h-4 w-4 shrink-0" />
-        Never sent to the server: video frames, images, body landmarks.
-      </p>
-    </div>
-  )
-}
-
-const STOP = ['Sharp or worsening pain', 'Numbness or tingling spreading into an arm or leg', 'Dizziness', 'Pain from a recent injury or surgery']
-
-const FAQ = [
-  ['Do I need any equipment?', 'A laptop or phone with a webcam, and enough space to be seen from head to hips. Nothing else.'],
-  [
-    'Which body areas are covered?',
-    'Neck, shoulders, chest, back, hips, legs and wrists. Stretches with a 3D reference video get a live score from the camera; the rest use a score you rate yourself.',
-  ],
-  ['Is it free?', 'Yes. You need an account to save sessions and see your history.'],
-  ['Who made this?', 'Four IT students at José Rizal University in Mandaluyong City, as a research project on browser-based pose tracking.'],
-]
-
-function Split({ id, title, children, proof, flip = false, tint = false }) {
-  return (
-    <section id={id} className={`scroll-mt-20 border-t border-line ${tint ? 'bg-paper-2' : ''}`}>
-      <div className={`${container} grid items-center gap-10 py-16 sm:py-24 lg:grid-cols-2 lg:gap-16`}>
-        <div className={flip ? 'lg:order-2' : ''}>
-          <h2 className={h2}>{title}</h2>
-          <div className={`mt-5 max-w-[34rem] space-y-4 ${lede}`}>{children}</div>
+      <div className="flex gap-5 p-5">
+        <img
+          src="/thumbs/neck_side_tilt.jpg"
+          alt=""
+          loading="lazy"
+          className="hidden h-[220px] w-[170px] shrink-0 rounded-md object-cover sm:block"
+        />
+        <div className="min-w-0 flex-1">
+          <table className="w-full text-[15px]">
+            <thead>
+              <tr className="border-b border-line text-left">
+                <th className={`${statLabel} pb-2 font-medium`}>Joint</th>
+                <th className={`${statLabel} pb-2 text-right font-medium`}>Measured</th>
+                <th className={`${statLabel} pb-2 text-right font-medium`}>Target</th>
+                <th className={`${statLabel} hidden pb-2 pl-4 font-medium md:table-cell`}>Deviation (±{TOLERANCE}°)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {READOUT.map((row) => (
+                <tr key={row.joint} className="border-b border-line">
+                  <td className="py-3 font-medium">{row.joint}</td>
+                  <td className="py-3 text-right font-mono">{row.measured}°</td>
+                  <td className="py-3 text-right font-mono text-muted">{row.target}°</td>
+                  <td className="hidden py-3 pl-4 md:table-cell">
+                    <DeviationBar deviation={row.measured - row.target} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-4 flex items-center gap-2 rounded-md bg-caution-soft px-3 py-2.5 text-sm font-medium text-caution">
+            <Icon name="warn" className="h-4 w-4 shrink-0" />
+            Right shoulder is 10° above target. Lower it.
+          </p>
         </div>
-        <div className={`min-w-0 ${flip ? 'lg:order-1' : ''}`}>{proof}</div>
       </div>
-    </section>
+      <figcaption className="flex items-center justify-between border-t border-line bg-paper-2 px-5 py-3">
+        <span className={statLabel}>Form score</span>
+        <span className="font-mono text-base font-medium">86 / 100</span>
+      </figcaption>
+    </figure>
   )
 }
 
@@ -178,122 +162,184 @@ export default function LandingPage() {
     if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth' })
   }, [hash])
 
+  const HELP = [
+    {
+      icon: 'search',
+      title: 'Find a stretch',
+      body: 'Browse stretches by body area and level, with the ones for your pain areas first.',
+      to: user ? '/exercises' : '/register',
+      action: 'Browse the library',
+    },
+    {
+      icon: 'play',
+      title: 'Start a session',
+      body: 'Follow the 3D guide on screen while your webcam checks each joint you hold.',
+      to: user ? '/dashboard' : '/register',
+      action: 'Start stretching',
+    },
+    {
+      icon: 'chart',
+      title: 'Track your progress',
+      body: 'Every session is scored and saved, so you can see your form week to week.',
+      to: user ? '/sessions' : '/register',
+      action: 'See your history',
+    },
+  ]
+
   return (
-    <PublicLayout>
-      <section id="hero" className={`${container} grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[1fr_600px] lg:gap-16`}>
-        <div>
-          <h1 className={`max-w-[36rem] ${displayTitle}`}>Stretch at home, with measured feedback.</h1>
-          <p className={`mt-6 max-w-[34rem] ${lede} sm:text-[18px]`}>
-            JustStretch compares your joint angles with a 3D reference while you hold each stretch, then tells you which joint is off and
-            by how much. It is built for mild, everyday muscle stiffness.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link to={user ? '/dashboard' : '/register'} className={`${btn.primary} ${btn.lg}`}>
-              {user ? 'Go to your dashboard' : 'Create a free account'}
-            </Link>
-            <a href="#how-it-works" className={`${btn.secondary} ${btn.lg}`}>
-              How it works
-            </a>
-          </div>
-          <dl className="mt-10 grid max-w-[34rem] grid-cols-3 gap-4 border-t border-line pt-5">
-            {[
-              ['Runs in', 'your browser'],
-              ['Video uploaded', 'none'],
-              ['Diagnosis', 'not provided'],
-            ].map(([k, v]) => (
-              <div key={k}>
-                <dt className={statLabel}>{k}</dt>
-                <dd className="mt-1 text-[15px] font-medium">{v}</dd>
-              </div>
-            ))}
-          </dl>
+    <PublicLayout contactBar credits={CREDITS}>
+      {/* Hero: a full-bleed photograph with the head low on the left, over a scrim from the ink. */}
+      <section id="hero" className="relative isolate flex min-h-[calc(100dvh-6.25rem)] items-end overflow-hidden bg-ink">
+        <div data-slot="hero" data-alt="Someone stretching at home in front of a laptop webcam" className="absolute inset-0 z-[1]">
+          <img
+            src={HERO_PHOTO.src}
+            srcSet={HERO_PHOTO.srcSet}
+            sizes="100vw"
+            alt={HERO_PHOTO.alt}
+            fetchPriority="high"
+            className="h-full w-full object-cover"
+            style={{ objectPosition: '50% 40%' }}
+          />
         </div>
-        <Readout />
+        <div className="absolute inset-0 z-[2] bg-gradient-to-r from-ink/85 via-ink/55 to-ink/0" aria-hidden="true" />
+        <div className={`${container} relative z-[3] pb-16 pt-24 sm:pb-20`}>
+          <div className="max-w-[40rem] text-white">
+            <h1 className={display}>Stretch at home, with measured feedback.</h1>
+            <p className="mt-6 max-w-[32rem] text-[18px] leading-relaxed text-white/90 sm:text-[21px]">
+              Follow a 3D guide while your webcam checks every joint angle.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to={user ? '/dashboard' : '/register'} className={`${btn.primary} h-12 px-6 text-base`}>
+                {user ? 'Go to your dashboard' : 'Create a free account'}
+              </Link>
+              <a
+                href="#how-it-works"
+                className={`${btn.secondary} h-12 border-white/60 bg-transparent px-6 text-base text-white hover:bg-white hover:text-ink`}
+              >
+                How it works
+              </a>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <Split
-        id="how-it-works"
-        title="What it measures"
-        proof={
-          <div className={`${card} p-6`}>
-            <AngleDiagram />
-          </div>
-        }
-      >
-        <p>
-          MediaPipe finds 33 points on your body in each camera frame. JustStretch turns those into joint angles and compares them with the
-          same angles in a Blender reference animation, frame by frame.
-        </p>
-        <p>A joint counts as in range when it is within the tolerance set for that stretch.</p>
-        <p>
-          <Link to={user ? '/exercises' : '/register'} className={link}>
-            See the exercise library
-          </Link>
-        </p>
-      </Split>
+      {/* How can we help: the three things a visitor comes to do. */}
+      <section className="py-24 sm:py-32">
+        <div className={container}>
+          <h2 className={`${sectionHead} text-center`}>How can we help you today?</h2>
+          <ul className="mx-auto mt-14 grid max-w-[72rem] gap-6 md:grid-cols-3">
+            {HELP.map((item) => (
+              <li key={item.title} className={`${card} flex flex-col items-center px-8 py-10 text-center`}>
+                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-white" aria-hidden="true">
+                  <Icon name={item.icon} className="h-7 w-7" />
+                </span>
+                <h3 className={`mt-6 ${itemHead}`}>{item.title}</h3>
+                <p className="mt-3 max-w-[22rem] text-base leading-relaxed text-ink-2">{item.body}</p>
+                <Link to={item.to} className="mt-6 inline-flex h-11 items-center font-medium text-accent underline-offset-4 hover:underline">
+                  {item.action}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
-      <Split
-        id="privacy"
-        title="Your video stays on your device."
-        flip
-        tint
-        proof={
-          <div className={`${card} p-6`}>
-            <DataFlow />
+      {/* The reference video beside the two things the app stands for. */}
+      <section className="border-y border-line bg-paper-2 py-24 sm:py-32">
+        <div className={`${container} grid items-center gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-20`}>
+          <figure className="min-w-0">
+            <video
+              src="/videos/neck_side_tilt.mp4"
+              poster="/thumbs/neck_side_tilt.jpg"
+              controls
+              muted
+              playsInline
+              preload="none"
+              className="aspect-video w-full rounded-lg bg-ink object-cover"
+            />
+            <figcaption className="mt-3 text-sm text-muted">Neck Side Tilt, one of the 3D reference animations made in Blender.</figcaption>
+          </figure>
+          <div className="min-w-0">
+            <h2 className={itemHead}>Measured, not guessed</h2>
+            <p className="mt-4 text-[17px] leading-relaxed text-ink-2">
+              MediaPipe finds 33 points on your body in each camera frame. JustStretch turns them into joint angles and compares them
+              with the same angles in the reference, frame by frame.
+            </p>
+            <hr className="my-10 w-24 border-t-2 border-accent" />
+            <h2 id="privacy" className={`scroll-mt-24 ${itemHead}`}>
+              Your video stays on your device
+            </h2>
+            <p className="mt-4 text-[17px] leading-relaxed text-ink-2">
+              Tracking runs in your browser tab. Saving a session stores the score, its length and your notes; video frames, images and
+              body landmarks never leave.
+            </p>
           </div>
-        }
-      >
-        <p>Pose tracking runs entirely in the browser tab you have open. Camera frames are processed and discarded on your device.</p>
-        <p>When you save a session, only the score, how long it took and any notes you typed are stored with your account.</p>
-      </Split>
+        </div>
+      </section>
 
-      <Split
-        id="limits"
-        title="A guide, not a diagnosis."
-        proof={
-          <div className={`${card} p-6`}>
-            <p className="text-[13px] font-medium text-caution">Stop the stretch and seek care if you feel</p>
-            <ul className="mt-3">
+      {/* The product: what a session shows, set large. */}
+      <section id="how-it-works" className="scroll-mt-20 py-24 sm:py-36">
+        <div className={container}>
+          <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
+            <h2 className={`${sectionHead} lg:col-span-6`}>What a session shows you</h2>
+            <p className={`${lead} lg:col-span-5 lg:col-start-8`}>
+              Each joint you hold is checked against its target, within a tolerance set for that stretch.
+            </p>
+          </div>
+          <div className="mt-14 grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+            <Readout />
+            <div className={`${card} flex items-center p-6`}>
+              <AngleDiagram />
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-muted">The readout and diagram are examples of what a session shows.</p>
+        </div>
+      </section>
+
+      {/* Limits: when to stop, as rows. */}
+      <section id="limits" className="border-t border-line bg-surface py-24 sm:py-32">
+        <div className={`${container} grid gap-12 lg:grid-cols-12`}>
+          <div className="lg:col-span-4">
+            <h2 className={sectionHead}>A guide, not a diagnosis.</h2>
+            <p className="mt-6 text-[17px] leading-relaxed text-ink-2">
+              For mild, everyday stiffness. If your scores for an area stay low, or you rate yourself very tired session after session, the
+              app suggests a physical therapist and shows their contact details.
+            </p>
+          </div>
+          <div className="lg:col-span-7 lg:col-start-6">
+            <p className="text-base font-medium text-caution">Stop the stretch and seek care if you feel</p>
+            <ul className="mt-4 border-t border-line">
               {STOP.map((item) => (
-                <li key={item} className="flex items-center gap-3 border-t border-line py-3 first:border-t-0">
-                  <span className="h-2 w-2 shrink-0 rounded-sm bg-caution" aria-hidden="true" />
-                  <span className="font-medium">{item}</span>
+                <li key={item} className="flex items-center gap-4 border-b border-line py-6 text-[20px] font-medium sm:text-[22px]">
+                  <Icon name="warn" className="h-5 w-5 shrink-0 text-caution" />
+                  {item}
                 </li>
               ))}
             </ul>
           </div>
-        }
-      >
-        <p>
-          JustStretch is for mild, everyday stiffness: a sore neck after a long day at a desk, tight hamstrings from sitting. It does not
-          assess injuries or replace a physical therapist.
-        </p>
-        <p>
-          If your scores for an area stay low, or you rate yourself very tired, session after session, the app suggests seeing a physical
-          therapist and shows their contact details.
-        </p>
-      </Split>
+        </div>
+      </section>
 
-      <section className="border-t border-line bg-surface">
-        <div className={`${container} py-16 sm:py-24`}>
-          <h2 className={h2}>Common questions</h2>
-          <dl className="mt-8 grid gap-x-16 md:grid-cols-2">
+      {/* Questions, then the action once more. */}
+      <section className="border-t border-line bg-paper-2 py-24 sm:py-32">
+        <div className={container}>
+          <h2 className={sectionHead}>Common questions</h2>
+          <dl className="mt-12 grid gap-x-16 md:grid-cols-2">
             {FAQ.map(([q, a]) => (
-              <div key={q} className="border-t border-line pb-6 pt-5">
-                <dt className="text-[19px] font-semibold tracking-[-0.01em]">{q}</dt>
-                <dd className="mt-2 max-w-[36rem] text-base leading-relaxed text-ink-2">{a}</dd>
+              <div key={q} className="border-t border-line-strong pb-8 pt-6">
+                <dt className={itemHead}>{q}</dt>
+                <dd className="mt-3 max-w-[36rem] text-[17px] leading-relaxed text-ink-2">{a}</dd>
               </div>
             ))}
           </dl>
           {!user && (
-            <div className="mt-6 flex flex-wrap items-center gap-4">
-              <Link to="/register" className={`${btn.primary} ${btn.lg}`}>
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <Link to="/register" className={`${btn.primary} h-12 px-6 text-base`}>
                 Create a free account
               </Link>
               <span className="text-[15px] text-muted">Takes under a minute.</span>
             </div>
           )}
-          <p className="mt-10 text-sm text-muted">The readout and diagram above are examples of what a session shows.</p>
         </div>
       </section>
 

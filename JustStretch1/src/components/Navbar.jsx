@@ -5,7 +5,7 @@ import Icon from './Icon.jsx'
 import { Wordmark } from './Mark.jsx'
 
 const linkClass = ({ isActive }) =>
-  `text-[15px] transition-colors ${isActive ? 'font-semibold text-accent underline underline-offset-4' : 'font-medium text-ink-2 hover:text-ink'}`
+  `whitespace-nowrap text-[15px] transition-colors ${isActive ? 'font-semibold text-accent underline underline-offset-4' : 'font-medium text-ink-2 hover:text-ink'}`
 
 const mobileLinkClass = 'block rounded-md px-3 py-2.5 text-[15px] font-medium text-ink-2 hover:bg-paper-2 hover:text-ink'
 

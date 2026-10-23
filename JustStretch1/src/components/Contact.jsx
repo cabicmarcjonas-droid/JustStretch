@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { btn, card, container, h2, input, label, lede, statLabel, textarea } from '../lib/ui.js'
+import { btn, card, container, input, label, lede, statLabel, textarea } from '../lib/ui.js'
 
 const EMAIL = 'juststretch@gmail.com'
 
@@ -14,9 +14,9 @@ export default function Contact() {
 
   return (
     <section id="contact" className="scroll-mt-20 border-t border-line">
-      <div className={`${container} grid gap-10 py-16 sm:py-24 lg:grid-cols-[1fr_600px] lg:gap-16`}>
+      <div className={`${container} grid gap-10 py-24 sm:py-32 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-20`}>
         <div>
-          <h2 className={h2}>Get in touch.</h2>
+          <h2 className="text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] sm:text-[44px] lg:text-[52px]">Get in touch.</h2>
           <p className={`mt-5 max-w-md ${lede}`}>Questions about JustStretch, or want to work together? Send us a message.</p>
           <dl className="mt-8 max-w-md border-t border-line">
             <div className="flex justify-between gap-4 border-b border-line py-3">
@@ -34,19 +34,19 @@ export default function Contact() {
           </dl>
         </div>
 
-        <form className={`${card} space-y-5 p-6`} onSubmit={handleSubmit}>
+        <form className={`${card} space-y-5 p-6 sm:p-8`} onSubmit={handleSubmit}>
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label htmlFor="name" className={label}>
                 Name
               </label>
-              <input type="text" id="name" placeholder="Your name" required className={input} />
+              <input type="text" id="name" placeholder="Your name" required className={`${input} h-12`} />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="email" className={label}>
                 Email
               </label>
-              <input type="email" id="email" placeholder="you@example.com" required className={input} />
+              <input type="email" id="email" placeholder="you@example.com" required className={`${input} h-12`} />
             </div>
           </div>
           <div className="space-y-1.5">
