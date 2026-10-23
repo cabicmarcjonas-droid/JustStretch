@@ -13,6 +13,18 @@ const isProduction = () => process.env.NODE_ENV === 'production'
 export function createApp({ mongoUrl }) {
   const app = express()
   app.set('trust proxy', 1)
+  // Server-Timing header on every API response: how long the server took, in ms.
+  // The client reads it next to its own round-trip time (paper, Table 6: Response Time).
+  app.use((req, res, next) => {
+    const started = process.hrtime.bigint()
+    const writeHead = res.writeHead
+    res.writeHead = function (...args) {
+      const ms = Number(process.hrtime.bigint() - started) / 1e6
+      if (!res.headersSent) res.setHeader('Server-Timing', `app;dur=${ms.toFixed(1)}`)
+      return writeHead.apply(this, args)
+    }
+    next()
+  })
   app.use(express.json({ limit: '100kb' }))
 
   const secret = process.env.SESSION_SECRET || 'dev-only-secret'

@@ -37,3 +37,28 @@ export function timeAgo(date, now = Date.now()) {
 export const firstName = (name) => String(name ?? '').split(' ')[0]
 
 export const plural = (word, count) => (count === 1 ? word : `${word}s`)
+
+// "Miguel Estallo" -> "ME", for the avatar circle.
+export const initials = (name) =>
+  String(name ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('')
+
+// "Good morning" / "Good afternoon" / "Good evening" in Asia/Manila.
+export function greeting(date = new Date()) {
+  const hour = Number(fmt({ hour: 'numeric', hour12: false }).format(date)) % 24
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+// "Oct 20" for chart axes.
+const monthDay = fmt({ month: 'short', day: 'numeric' })
+export const formatMonthDay = (date) => monthDay.format(new Date(date))
+
+// "W" for a 'YYYY-MM-DD' Manila date, used by the dashboard's week strip.
+const weekdayLetter = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'narrow' })
+export const weekdayOf = (isoDay) => weekdayLetter.format(new Date(`${isoDay}T00:00:00Z`))

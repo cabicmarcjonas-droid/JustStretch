@@ -1,15 +1,23 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { InputError, InputLabel, PrimaryButton, SELECT_CLASSES, TEXTAREA_CLASSES, TextInput } from '../components/forms.jsx'
-import { areaOptions, difficultyOptions } from '../lib/enums.js'
+import { InputError, InputLabel, PrimaryButton, TextInput } from '../components/forms.jsx'
+import Icon from '../components/Icon.jsx'
+import { areaOptions, difficultyOptions, instructionSteps } from '../lib/enums.js'
 import { plural } from '../lib/format.js'
 import { useForm } from '../lib/hooks.js'
+import { btn, card, sectionTitle, select, textarea } from '../lib/ui.js'
 
 const AREAS = Object.entries(areaOptions())
 const DIFFICULTIES = Object.entries(difficultyOptions())
-const BENEFIT_INPUTS = 5
+const MAX_BENEFITS = 5
+const MAX_STEPS = 12
 
-// exercises/partials/form.blade.php, shared by the create and edit pages.
-// The form always shows five benefit inputs; the API drops the blank ones.
+const hint = 'mt-0.5 text-[13px] text-slate-500'
+const iconButton =
+  'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-40 disabled:hover:border-slate-300 disabled:hover:bg-white disabled:hover:text-slate-500'
+
+// Shared by the create and edit pages. Steps are edited one per input and sent to the API
+// joined by newlines, the same `instructions` string it has always stored.
 export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit, onForbidden }) {
   const form = useForm({
     title: exercise?.title ?? '',
@@ -20,11 +28,11 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
     repsPerSet: exercise?.repsPerSet ?? 1,
     description: exercise?.description ?? '',
     instructions: exercise?.instructions ?? '',
-    benefits: Array.from({ length: BENEFIT_INPUTS }, (_, i) => exercise?.benefits?.[i] ?? ''),
+    benefits: exercise?.benefits ?? [],
     precautions: exercise?.precautions ?? '',
     videoUrl: exercise?.videoUrl ?? '',
   })
-  const { errors } = form
+  const { errors, setField } = form
 
   // The session is split evenly into timed holds, so this hint shows what each
   // rep will last. Blank/invalid values simply hide it.
@@ -36,11 +44,24 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
     return Math.max(1, Math.round((minutes * 60) / (sets * reps)))
   })()
 
-  const setBenefit = (index, value) =>
-    form.setField(
-      'benefits',
-      form.values.benefits.map((benefit, i) => (i === index ? value : benefit)),
-    )
+  // Local list so a blank step can exist while it is being typed.
+  const [steps, setSteps] = useState(() => {
+    const existing = instructionSteps(exercise?.instructions)
+    return existing.length > 0 ? existing : ['']
+  })
+  const updateSteps = (next) => {
+    setSteps(next)
+    setField('instructions', next.map((s) => s.trim()).filter(Boolean).join('\n'))
+  }
+
+  const [benefitDraft, setBenefitDraft] = useState('')
+  const benefits = form.values.benefits
+  const addBenefit = () => {
+    const value = benefitDraft.trim()
+    if (!value || benefits.length >= MAX_BENEFITS || benefits.includes(value)) return
+    setField('benefits', [...benefits, value])
+    setBenefitDraft('')
+  }
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -60,34 +81,36 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
   const errorCount = Object.entries(errors)
     .filter(([key]) => key !== '_form')
     .reduce((sum, [, messages]) => sum + messages.length, 0)
+  const benefitErrors = Object.entries(errors)
+    .filter(([key]) => key === 'benefits' || key.startsWith('benefits.'))
+    .flatMap(([, messages]) => messages)
 
-  // pt-6 matches the gap the Blade form gets from its hidden CSRF input inside space-y-6.
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 pt-6" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       {errorCount > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
           Please fix the {plural('field', errorCount)} highlighted below.
         </div>
       )}
       {errors._form && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
           {errors._form[0]}
         </div>
       )}
 
-      <div className="rounded-2xl border border-line bg-white p-6 space-y-6">
-        <h2 className="text-xl font-black italic tracking-tighter">Basics</h2>
+      <section className={`${card} space-y-5 p-6 sm:p-7`}>
+        <h2 className={sectionTitle}>Basics</h2>
 
         <div>
           <InputLabel htmlFor="title" value="Title" />
-          <TextInput id="title" type="text" className="mt-1 block w-full" maxLength={120} placeholder="e.g. Seated Spinal Twist" {...form.bind('title')} />
+          <TextInput id="title" type="text" className="mt-1.5" maxLength={120} placeholder="e.g. Seated Spinal Twist" {...form.bind('title')} />
           <InputError messages={errors.title} className="mt-2" />
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-3">
           <div>
             <InputLabel htmlFor="target_area" value="Target area" />
-            <select id="target_area" className={`mt-1 block w-full ${SELECT_CLASSES}`} {...form.bind('targetArea')}>
+            <select id="target_area" className={`mt-1.5 ${select}`} {...form.bind('targetArea')}>
               <option value="">Choose…</option>
               {AREAS.map(([value, label]) => (
                 <option key={value} value={value}>
@@ -100,7 +123,7 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
 
           <div>
             <InputLabel htmlFor="difficulty" value="Difficulty" />
-            <select id="difficulty" className={`mt-1 block w-full ${SELECT_CLASSES}`} {...form.bind('difficulty')}>
+            <select id="difficulty" className={`mt-1.5 ${select}`} {...form.bind('difficulty')}>
               <option value="">Choose…</option>
               {DIFFICULTIES.map(([value, label]) => (
                 <option key={value} value={value}>
@@ -113,24 +136,24 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
 
           <div>
             <InputLabel htmlFor="duration_minutes" value="Duration (minutes)" />
-            <TextInput id="duration_minutes" type="number" min="1" max="30" className="mt-1 block w-full" {...form.bind('durationMinutes')} />
+            <TextInput id="duration_minutes" type="number" min="1" max="30" className="mt-1.5" {...form.bind('durationMinutes')} />
             <InputError messages={errors.durationMinutes} className="mt-2" />
           </div>
 
           <div>
             <InputLabel htmlFor="sets" value="Sets" />
-            <TextInput id="sets" type="number" min="1" max="20" className="mt-1 block w-full" {...form.bind('sets')} />
+            <TextInput id="sets" type="number" min="1" max="20" className="mt-1.5" {...form.bind('sets')} />
             <InputError messages={errors.sets} className="mt-2" />
           </div>
 
           <div>
             <InputLabel htmlFor="reps_per_set" value="Reps per set" />
-            <TextInput id="reps_per_set" type="number" min="1" max="50" className="mt-1 block w-full" {...form.bind('repsPerSet')} />
+            <TextInput id="reps_per_set" type="number" min="1" max="50" className="mt-1.5" {...form.bind('repsPerSet')} />
             <InputError messages={errors.repsPerSet} className="mt-2" />
           </div>
         </div>
 
-        <p className="text-xs text-muted">
+        <p className={hint}>
           {holdSeconds
             ? `The ${form.values.durationMinutes} minute session is split into ${form.values.sets} × ${form.values.repsPerSet} timed holds of about ${holdSeconds}s each. The session ends automatically after the last rep.`
             : 'The session is split into timed holds. Set the duration, sets and reps per set so the app knows when the last rep ends.'}
@@ -142,55 +165,106 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
             id="description"
             rows={3}
             maxLength={500}
-            className={`mt-1 ${TEXTAREA_CLASSES}`}
+            className={`mt-1.5 ${textarea}`}
             placeholder="One or two sentences about what this stretch helps with."
             {...form.bind('description')}
           />
           <InputError messages={errors.description} className="mt-2" />
         </div>
-      </div>
+      </section>
 
-      <div className="rounded-2xl border border-line bg-white p-6 space-y-6">
-        <h2 className="text-xl font-black italic tracking-tighter">How to do it</h2>
-
-        <div>
-          <InputLabel htmlFor="instructions" value="Instructions" />
-          <p className="text-xs text-muted">Put each step on its own line. They will be shown as a numbered list.</p>
-          <textarea
-            id="instructions"
-            rows={6}
-            maxLength={2000}
-            className={`mt-1 ${TEXTAREA_CLASSES}`}
-            placeholder={'Sit tall on a chair.\nTurn your upper body to the right.\nHold for 20 seconds, then switch sides.'}
-            {...form.bind('instructions')}
-          />
-          <InputError messages={errors.instructions} className="mt-2" />
-        </div>
+      <section className={`${card} space-y-5 p-6 sm:p-7`}>
+        <h2 className={sectionTitle}>How to do it</h2>
 
         <fieldset>
-          <legend className="block font-medium text-sm text-ink">Benefits</legend>
-          <p className="text-xs text-muted">Between one and five short benefits. Leave unused boxes empty.</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {form.values.benefits.map((benefit, index) => (
-              <div key={index}>
-                <label htmlFor={`benefit_${index}`} className="sr-only">
-                  Benefit {index + 1}
+          <legend className="text-sm font-semibold text-slate-700">Steps</legend>
+          <p className={hint}>One instruction per step. They are shown as a numbered list.</p>
+          <ol className="mt-3 space-y-2.5">
+            {steps.map((step, index) => (
+              <li key={index} className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-black text-accent">
+                  {index + 1}
+                </span>
+                <label htmlFor={`step_${index}`} className="sr-only">
+                  Step {index + 1}
                 </label>
                 <TextInput
-                  id={`benefit_${index}`}
-                  name="benefits[]"
+                  id={`step_${index}`}
                   type="text"
-                  maxLength={80}
-                  className="block w-full"
-                  placeholder={`Benefit ${index + 1}`}
-                  value={benefit}
-                  onChange={(event) => setBenefit(index, event.target.value)}
+                  maxLength={300}
+                  placeholder={index === 0 ? 'e.g. Sit tall on a chair.' : `Step ${index + 1}`}
+                  value={step}
+                  onChange={(event) => updateSteps(steps.map((s, i) => (i === index ? event.target.value : s)))}
                 />
-                <InputError messages={errors[`benefits.${index}`]} className="mt-1" />
-              </div>
+                <button
+                  type="button"
+                  className={iconButton}
+                  onClick={() => updateSteps(steps.filter((_, i) => i !== index))}
+                  disabled={steps.length === 1}
+                  aria-label={`Remove step ${index + 1}`}
+                >
+                  <Icon name="trash" className="h-4 w-4" />
+                </button>
+              </li>
             ))}
-          </div>
-          <InputError messages={errors.benefits} className="mt-2" />
+          </ol>
+          {steps.length < MAX_STEPS && (
+            <button type="button" className={`${btn.ghost} ${btn.md} mt-3`} onClick={() => updateSteps([...steps, ''])}>
+              <Icon name="plus" className="h-4 w-4" strokeWidth={2.2} />
+              Add step
+            </button>
+          )}
+          <InputError messages={errors.instructions} className="mt-2" />
+        </fieldset>
+
+        <fieldset>
+          <legend className="text-sm font-semibold text-slate-700">Benefits</legend>
+          <p className={hint}>Between one and five short benefits.</p>
+          {benefits.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {benefits.map((benefit) => (
+                <li
+                  key={benefit}
+                  className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-accent-soft py-1 pe-1 ps-3.5 text-sm font-semibold text-accent-dark"
+                >
+                  {benefit}
+                  <button
+                    type="button"
+                    className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-emerald-100"
+                    onClick={() => setField('benefits', benefits.filter((b) => b !== benefit))}
+                    aria-label={`Remove ${benefit}`}
+                  >
+                    <Icon name="x" className="h-3.5 w-3.5" strokeWidth={2.4} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {benefits.length < MAX_BENEFITS && (
+            <div className="mt-3 flex gap-2">
+              <label htmlFor="benefit_new" className="sr-only">
+                New benefit
+              </label>
+              <TextInput
+                id="benefit_new"
+                type="text"
+                maxLength={80}
+                placeholder="e.g. Eases neck tension"
+                value={benefitDraft}
+                onChange={(event) => setBenefitDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    addBenefit()
+                  }
+                }}
+              />
+              <button type="button" className={`${btn.secondary} h-11 shrink-0 px-4 text-sm`} onClick={addBenefit} disabled={!benefitDraft.trim()}>
+                Add
+              </button>
+            </div>
+          )}
+          <InputError messages={benefitErrors} className="mt-2" />
         </fieldset>
 
         <div>
@@ -199,7 +273,7 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
             id="precautions"
             rows={2}
             maxLength={300}
-            className={`mt-1 ${TEXTAREA_CLASSES}`}
+            className={`mt-1.5 ${textarea}`}
             placeholder="e.g. Stop if you feel sharp pain."
             {...form.bind('precautions')}
           />
@@ -208,26 +282,18 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
 
         <div>
           <InputLabel htmlFor="video_url" value="Demo video URL (optional)" />
-          <TextInput
-            id="video_url"
-            type="text"
-            maxLength={255}
-            className="mt-1 block w-full"
-            placeholder="https://… or /videos/stretch.mp4"
-            {...form.bind('videoUrl')}
-          />
+          <TextInput id="video_url" type="text" maxLength={255} className="mt-1.5" placeholder="https://… or /videos/stretch.mp4" {...form.bind('videoUrl')} />
           <InputError messages={errors.videoUrl} className="mt-2" />
         </div>
-      </div>
+      </section>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Link
-          to={cancelTo}
-          className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-line bg-white text-sm font-bold hover:border-ink"
-        >
+        <Link to={cancelTo} className={`${btn.secondary} ${btn.lg}`}>
           Cancel
         </Link>
-        <PrimaryButton disabled={form.processing}>{submitLabel}</PrimaryButton>
+        <PrimaryButton size="lg" disabled={form.processing}>
+          {submitLabel}
+        </PrimaryButton>
       </div>
     </form>
   )

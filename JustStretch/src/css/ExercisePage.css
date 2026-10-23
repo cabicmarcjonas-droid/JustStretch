@@ -1,0 +1,126 @@
+@reference "./theme.css";
+
+.exercise-page {
+  @apply bg-paper text-ink antialiased min-h-screen;
+}
+
+.exercise-inner {
+  @apply max-w-6xl mx-auto px-6 py-12;
+}
+
+/* --- Back --- */
+.back-btn {
+  @apply inline-flex items-center gap-2 font-body text-xs font-medium uppercase tracking-[0.06em] text-muted
+         hover:text-accent focus-visible:outline-none focus-visible:text-accent focus-visible:ring-2 focus-visible:ring-accent/30 transition-colors;
+}
+
+.exercise-inner h1 {
+  @apply font-display font-stretch-extra-condensed text-4xl md:text-5xl font-extrabold tracking-[-0.01em] text-ink mt-6 mb-10 text-balance break-words leading-[1.02];
+}
+
+/* --- Video players — unified 16:9 frames, slightly larger --- */
+.session-container {
+  @apply grid md:grid-cols-2 border-t border-l border-line items-stretch;
+}
+
+.video-box {
+  @apply border-r border-b border-line p-4 md:p-6 min-w-0 overflow-hidden flex flex-col gap-4;
+}
+
+.video-box h3 {
+  @apply font-body text-xs font-medium uppercase tracking-[0.06em] text-muted;
+}
+
+/* Shared media frame — tutorial + webcam same size */
+.media-frame {
+  @apply relative w-full aspect-video bg-ink border border-line rounded-lg overflow-hidden isolate;
+}
+
+.media-frame video,
+.media-frame canvas {
+  @apply absolute inset-0 w-full h-full object-cover block;
+}
+
+/* Mirror webcam for natural selfie view */
+.webcam-canvas {
+  transform: scaleX(-1);
+}
+
+.webcam-skeleton {
+  @apply absolute inset-0 grid place-items-center bg-ink/60;
+  backdrop-filter: blur(1px);
+}
+
+.webcam-skeleton p {
+  @apply font-body text-xs font-medium uppercase tracking-[0.06em] text-white/80;
+}
+
+/* Legacy support — tutorial video inside media-frame inherits frame rules */
+.video-box video {
+  @apply w-full h-full object-cover bg-ink;
+}
+
+.webcam-video {
+  @apply -scale-x-100;
+}
+
+/* --- Duration / controls --- */
+.duration-text {
+  @apply font-mono text-sm uppercase tracking-widest text-muted mt-6;
+}
+
+.exercise-controls {
+  @apply flex items-center gap-4 mt-8;
+}
+
+.exercise-controls button {
+  @apply px-10 py-3 font-body text-sm font-medium uppercase tracking-[0.06em] transition-colors disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2;
+}
+
+.start-btn {
+  @apply bg-accent text-accent-ink hover:bg-ink focus-visible:ring-accent;
+}
+
+.end-btn {
+  @apply bg-ink text-accent-ink hover:bg-accent focus-visible:ring-accent;
+}
+
+/* --- Benefits --- */
+.benefits {
+  @apply mt-20 max-w-2xl border-t border-line pt-10;
+}
+
+.benefits h2 {
+  @apply font-display text-2xl font-bold tracking-[-0.02em] text-ink mb-6;
+}
+
+.benefits ul {
+  @apply border-t border-line;
+}
+
+.benefits li {
+  @apply flex items-center gap-4 border-b border-line py-4 text-ink font-medium;
+}
+
+.benefits li::before {
+  content: "\2192";
+  @apply text-accent font-bold;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back-btn, .exercise-controls button {
+    transition: none !important;
+  }
+}

@@ -13,6 +13,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import NotFound from './pages/NotFound.jsx'
 import Profile from './pages/Profile.jsx'
 import SessionsIndex from './pages/SessionsIndex.jsx'
+import SessionShow from './pages/SessionShow.jsx'
 
 // The session page pulls in MediaPipe (~0.5 MB), so it loads only when someone starts a session.
 const SessionCreate = lazy(() => import('./pages/SessionCreate.jsx'))
@@ -55,6 +56,7 @@ export default function App() {
       <Route path="/exercises/:id/edit" element={guarded(<ExerciseEdit />)} />
       <Route path="/exercises/:id/session" element={guarded(sessionPage)} />
       <Route path="/sessions" element={guarded(<SessionsIndex />)} />
+      <Route path="/sessions/:id" element={guarded(<SessionShow />)} />
       <Route path="/profile" element={guarded(<Profile />)} />
 
       {/* Redirects for the old JustStretch1 paths */}

@@ -1,0 +1,201 @@
+@reference "./theme.css";
+
+/* --- Shared navbar --- */
+.app-navbar {
+  @apply sticky top-0 z-50 bg-paper border-b border-line;
+  backdrop-filter: saturate(0);
+}
+
+.app-navbar .navbar-inner {
+  @apply max-w-5xl mx-auto flex items-center justify-between px-6 py-4 gap-4;
+  padding-left: max(1.5rem, env(safe-area-inset-left));
+  padding-right: max(1.5rem, env(safe-area-inset-right));
+}
+
+.app-navbar .logo {
+  @apply font-display text-[1.35rem] font-bold italic tracking-[0.06em] text-ink uppercase shrink-0 cursor-pointer hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 rounded-sm transition-colors select-none;
+}
+.app-navbar .logo:focus-visible {
+  @apply outline-none ring-2 ring-accent/30 rounded-sm;
+}
+.app-navbar .logo:active {
+  @apply text-moss;
+}
+
+/* Desktop links centered */
+.navbar-links {
+  @apply hidden md:flex items-center gap-7 font-body text-xs font-medium uppercase tracking-[0.06em] text-muted;
+}
+.navbar-links a {
+  @apply hover:text-accent focus-visible:outline-none focus-visible:text-accent focus-visible:ring-2 focus-visible:ring-accent/30 transition-colors;
+}
+.navbar-links .login-link {
+  @apply text-ink! border-b border-ink pb-0.5 hover:text-accent! hover:border-accent focus-visible:ring-accent;
+}
+
+/* Right actions */
+.navbar-actions {
+  @apply relative flex items-center gap-3 shrink-0;
+}
+.login-link-desktop {
+  @apply hidden md:inline-flex font-body text-xs font-medium uppercase tracking-[0.06em] text-ink border-b border-ink pb-0.5 hover:text-accent hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors;
+}
+
+/* Settings button */
+.settings-btn {
+  @apply inline-flex items-center gap-2 px-3 py-2 border border-line bg-paper text-ink font-body text-xs font-medium uppercase tracking-[0.06em] hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 transition-colors;
+}
+.settings-icon {
+  @apply text-sm leading-none;
+}
+.settings-text {
+  @apply hidden sm:inline;
+}
+
+/* Dropdown anchor */
+.settings-anchor {
+  @apply absolute top-full right-0 mt-3 z-50;
+}
+
+/* Settings dropdown */
+.settings-dropdown {
+  @apply w-72 bg-paper border border-line p-4 flex flex-col gap-3;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+[data-theme="dark"] .settings-dropdown {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.settings-user {
+  @apply flex flex-col gap-1;
+}
+.settings-label {
+  @apply font-body text-[10px] font-medium uppercase tracking-[0.06em] text-muted;
+}
+.settings-email {
+  @apply font-mono text-xs text-ink truncate break-all;
+}
+.settings-divider {
+  @apply border-t border-line;
+}
+.settings-row {
+  @apply flex items-center justify-between gap-4 py-1;
+}
+.settings-row-text {
+  @apply flex flex-col gap-0.5;
+}
+.settings-row-title {
+  @apply font-body text-xs font-medium uppercase tracking-[0.06em] text-ink;
+}
+.settings-row-hint {
+  @apply font-body text-[11px] text-muted;
+}
+.theme-switch {
+  @apply relative w-11 h-6 bg-panel border border-line rounded-full shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent;
+}
+.theme-switch.on {
+  @apply bg-accent border-accent;
+}
+.theme-switch-thumb {
+  @apply absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.theme-switch.on .theme-switch-thumb {
+  transform: translateX(20px);
+}
+.settings-logout {
+  @apply w-full text-left font-body text-xs font-medium uppercase tracking-[0.06em] text-accent hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 py-2 transition-colors;
+}
+
+/* Exercise minimal */
+.exercise-navbar .navbar-inner {
+  @apply grid grid-cols-[auto_1fr_auto] items-center;
+}
+.back-link {
+  @apply font-body text-xs font-medium uppercase tracking-[0.06em] text-muted hover:text-accent focus-visible:outline-none focus-visible:text-accent focus-visible:ring-2 focus-visible:ring-accent/30 transition-colors;
+}
+.exercise-nav-title {
+  @apply font-display text-sm md:text-base font-bold text-ink text-center px-4 truncate;
+}
+.navbar-placeholder {
+  @apply w-[88px]; /* balance back link width */
+}
+
+/* Hamburger */
+.hamburger {
+  @apply md:hidden relative w-11 h-11 flex flex-col items-center justify-center gap-1.5 border border-line bg-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors;
+  touch-action: manipulation;
+}
+.hamburger-line {
+  @apply block w-5 h-0.5 bg-ink transition-transform transition-colors;
+  transform-origin: center;
+}
+.hamburger-line.open-top {
+  transform: translateY(6px) rotate(45deg);
+}
+.hamburger-line.open-middle {
+  opacity: 0;
+}
+.hamburger-line.open-bottom {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+/* Mobile drawer */
+.mobile-drawer {
+  @apply md:hidden border-t border-line bg-paper;
+  overscroll-behavior: contain;
+  animation: drawerIn 180ms ease;
+}
+.mobile-links {
+  @apply flex flex-col;
+}
+.mobile-links li {
+  @apply border-b border-line;
+}
+.mobile-links a {
+  @apply flex items-center px-6 py-4 font-body text-xs font-medium uppercase tracking-[0.06em] text-ink hover:text-accent focus-visible:outline-none focus-visible:bg-panel transition-colors;
+}
+.mobile-login {
+  @apply bg-accent! text-accent-ink! hover:bg-ink! focus-visible:ring-accent;
+}
+.mobile-user {
+  @apply flex flex-col gap-1 px-6 py-4 bg-panel;
+}
+.mobile-user-label {
+  @apply font-body text-[10px] font-medium uppercase tracking-[0.06em] text-muted;
+}
+.mobile-user-email {
+  @apply font-mono text-xs text-ink break-all;
+}
+.mobile-settings-row {
+  @apply p-4 bg-paper border-b-0;
+}
+.mobile-settings-row .settings-dropdown {
+  @apply w-full shadow-none border-0 p-0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+@keyframes drawerIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-navbar, .settings-btn, .hamburger, .theme-switch, .mobile-drawer {
+    transition: none !important;
+    animation: none !important;
+  }
+  .theme-switch-thumb {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,92 @@
+@reference "./theme.css";
+
+.landing-page {
+  @apply bg-paper text-ink antialiased min-h-screen;
+}
+
+/* --- Nav: a ruled header, not a floating pill bar --- */
+.landing-navbar {
+  @apply sticky top-0 z-50 bg-paper border-b border-line;
+}
+
+.landing-navbar .navbar-inner {
+  @apply max-w-5xl mx-auto flex items-center justify-between px-6 py-4;
+}
+
+.landing-navbar .logo {
+  @apply font-display text-lg font-extrabold tracking-[-0.01em] text-ink uppercase;
+}
+
+.landing-navbar ul {
+  @apply flex items-center gap-8 font-body text-xs font-medium uppercase tracking-[0.06em] text-muted;
+}
+
+.landing-navbar a {
+  @apply hover:text-accent focus-visible:outline-none focus-visible:text-accent focus-visible:ring-2 focus-visible:ring-accent/30 transition-colors;
+}
+
+.login-link {
+  @apply text-ink! border-b border-ink pb-0.5 hover:text-accent! hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors;
+}
+
+/* --- Hero: centered introductory message (image removed per brief) --- */
+.hero-section {
+  @apply max-w-5xl mx-auto px-6 pt-16 pb-20 border-b border-line;
+}
+
+.hero-section--intro {
+  @apply max-w-3xl mx-auto px-6 pt-24 pb-24 flex flex-col items-center text-center border-b border-line;
+}
+
+.hero-section--intro .hero-copy {
+  @apply max-w-2xl flex flex-col items-center;
+}
+
+.hero-section--intro .eyebrow {
+  @apply block font-body text-xs font-medium uppercase tracking-[0.14em] text-accent mb-5;
+}
+
+.hero-section--intro h1 {
+  @apply font-display font-stretch-extra-condensed text-5xl md:text-6xl font-extrabold tracking-[-0.01em] text-ink leading-[1.0] mb-6 text-balance;
+  font-style: normal;
+}
+
+.hero-section--intro p {
+  @apply text-lg text-muted max-w-md mx-auto leading-relaxed text-balance;
+  font-family: var(--font-body);
+}
+
+.hero-cta {
+  @apply inline-flex items-center gap-2 mt-8 bg-ink text-accent-ink font-body text-sm font-medium
+         uppercase tracking-[0.06em] px-7 py-3.5 hover:bg-accent active:bg-moss focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 transition-colors cursor-pointer;
+  min-height: 44px;
+}
+
+/* --- About & Contact sections inherit the ruled-section rhythm --- */
+.landing-page .about-page,
+.landing-page .contact-page {
+  @apply bg-paper;
+}
+
+/* --- Footer --- */
+.landing-footer {
+  @apply border-t border-line py-8 text-center;
+}
+
+.landing-footer p {
+  @apply text-muted font-body text-xs font-medium uppercase tracking-[0.06em];
+}
+
+/* Safe area padding for notches */
+.landing-page .navbar-inner,
+.landing-page .hero-section,
+.landing-page .landing-footer {
+  padding-left: max(1.5rem, env(safe-area-inset-left));
+  padding-right: max(1.5rem, env(safe-area-inset-right));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-navbar a, .hero-cta, .login-link {
+    transition: none !important;
+  }
+}

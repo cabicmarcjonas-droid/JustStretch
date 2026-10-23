@@ -1,37 +1,46 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { areaLabel } from '../lib/enums.js'
+import { card } from '../lib/ui.js'
 import DifficultyBadge from './DifficultyBadge.jsx'
+import Icon from './Icon.jsx'
+import Thumbnail from './Thumbnail.jsx'
 
-export default function ExerciseCard({ exercise, className = '' }) {
+export default function ExerciseCard({ exercise, recommended = false, className = '' }) {
   const { user } = useAuth()
   const byYou = exercise.author?.id === user?.id
 
   return (
     <article
-      className={`group relative flex flex-col rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm transition-all duration-300 ease-out hover:-translate-y-2 hover:border-emerald-100 hover:shadow-2xl hover:shadow-emerald-200/40 ${className}`}
+      className={`group relative flex flex-col overflow-hidden ${card} transition-[transform,box-shadow] duration-200 ease-out [@media(hover:hover)]:hover:-translate-y-0.5 [@media(hover:hover)]:hover:shadow-lg ${className}`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-black uppercase tracking-widest text-accent">{areaLabel(exercise.targetArea)}</span>
-        <DifficultyBadge difficulty={exercise.difficulty} />
-      </div>
-
-      <h3 className="mt-3 text-xl leading-snug font-bold">
-        <Link to={`/exercises/${exercise.id}`} className="after:absolute after:inset-0 focus:outline-none">
-          {exercise.title}
-        </Link>
-      </h3>
-
-      <p className="mt-2 text-sm text-muted line-clamp-3">{exercise.description}</p>
-
-      <div className="mt-auto pt-5 flex items-center justify-between text-xs text-muted">
-        <span className="inline-flex items-center gap-1.5">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3.5 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {exercise.durationMinutes} min
+      <Thumbnail videoUrl={exercise.videoUrl} label className="aspect-video">
+        <span className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-accent shadow-sm">
+          {areaLabel(exercise.targetArea)}
         </span>
-        <span className="truncate ms-3">by {byYou ? 'you' : exercise.author?.name}</span>
+      </Thumbnail>
+
+      <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
+        <h3 className="text-lg font-bold leading-snug">
+          <Link to={`/exercises/${exercise.id}`} className="after:absolute after:inset-0 focus:outline-none">
+            {exercise.title}
+          </Link>
+        </h3>
+
+        {recommended && (
+          <p className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-accent">
+            <Icon name="check" className="h-3 w-3" strokeWidth={3} />
+            Recommended for you
+          </p>
+        )}
+
+        <p className="mt-1.5 line-clamp-2 text-sm text-muted">{exercise.description}</p>
+
+        <div className="mt-auto flex items-center gap-2 pt-4 text-xs text-muted">
+          <DifficultyBadge difficulty={exercise.difficulty} />
+          <span className="font-medium">· {exercise.durationMinutes} min</span>
+          <span className="ms-auto truncate">by {byYou ? 'you' : exercise.author?.name}</span>
+        </div>
       </div>
     </article>
   )

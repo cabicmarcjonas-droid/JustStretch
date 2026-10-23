@@ -23,6 +23,10 @@ export const DIFFICULTIES = [
 export const BODY_AREA_VALUES = BODY_AREAS.map((a) => a.value)
 export const DIFFICULTY_VALUES = DIFFICULTIES.map((d) => d.value)
 
+// The areas a member can pick on the body map, from the top of the body down.
+// The labels come from BODY_AREAS, so they always match the ones on the exercises.
+export const PAIN_AREAS = ['neck', 'shoulders', 'upper_back', 'lower_back', 'hips', 'quads', 'hamstrings']
+
 export const bodyArea = (value) => BODY_AREAS.find((a) => a.value === value) ?? null
 export const difficulty = (value) => DIFFICULTIES.find((d) => d.value === value) ?? null
 

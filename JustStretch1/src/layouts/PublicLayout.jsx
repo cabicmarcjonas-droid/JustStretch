@@ -19,7 +19,7 @@ export default function PublicLayout({ title, children }) {
     </Link>
   ) : (
     <Link to="/login" className={navButton}>
-      Login
+      Log in
     </Link>
   )
 

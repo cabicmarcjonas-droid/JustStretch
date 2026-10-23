@@ -35,15 +35,41 @@ export function computeStreak(days, now = new Date()) {
   return streak
 }
 
+// The last `count` Manila days, oldest first, ending today: [{ date: 'YYYY-MM-DD', active }].
+// Drives the week strip next to the streak.
+export function recentDays(days, now = new Date(), count = 7) {
+  const cursor = new Date(now.getTime() + MANILA_OFFSET_MS)
+  const out = []
+  for (let i = 0; i < count; i += 1) {
+    const date = cursor.toISOString().slice(0, 10)
+    out.unshift({ date, active: days.has(date) })
+    cursor.setUTCDate(cursor.getUTCDate() - 1)
+  }
+  return out
+}
+
+// How many recent sessions the score chart shows.
+const HISTORY_SIZE = 14
+
 router.get('/', async (req, res) => {
   const userId = req.user._id
   const mine = { user: userId }
   const now = new Date()
 
-  const [totalSessions, lastWeek, thisWeek, areaCounts, triedIds, recent, activeDays] = await Promise.all([
+  const [totalSessions, lastWeek, weekBefore, thisWeek, areaCounts, triedIds, recent, activeDays, history] = await Promise.all([
     StretchSession.countDocuments(mine),
     StretchSession.aggregate([
       { $match: { user: userId, completedAt: { $gte: new Date(now.getTime() - 7 * DAY_MS) } } },
+      { $group: { _id: null, avg: { $avg: '$score' } } },
+    ]),
+    // The 7 days before that, so the dashboard can show "+6 vs last week".
+    StretchSession.aggregate([
+      {
+        $match: {
+          user: userId,
+          completedAt: { $gte: new Date(now.getTime() - 14 * DAY_MS), $lt: new Date(now.getTime() - 7 * DAY_MS) },
+        },
+      },
       { $group: { _id: null, avg: { $avg: '$score' } } },
     ]),
     StretchSession.aggregate([
@@ -59,15 +85,18 @@ router.get('/', async (req, res) => {
       { $limit: 1 },
     ]),
     StretchSession.distinct('exercise', mine),
-    StretchSession.find(mine).sort({ completedAt: -1, _id: -1 }).limit(5).populate('exercise', 'title targetArea'),
+    StretchSession.find(mine).sort({ completedAt: -1, _id: -1 }).limit(5).populate('exercise', 'title targetArea videoUrl'),
     StretchSession.aggregate([
       { $match: mine },
       { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$completedAt', timezone: 'Asia/Manila' } } } },
     ]),
+    StretchSession.find(mine).sort({ completedAt: -1, _id: -1 }).limit(HISTORY_SIZE).select('score completedAt'),
   ])
+  const days = new Set(activeDays.map((d) => d._id))
 
-  // 3 random exercises the user has not tried yet; any 3 if they have tried everything.
-  const sample = async (match) => Exercise.aggregate([{ $match: match }, { $sample: { size: 3 } }, { $project: { _id: 1 } }])
+  // 4 random exercises the user has not tried yet; any 4 if they have tried everything.
+  // The dashboard shows the first as "Today's pick" and the rest under "Try something new".
+  const sample = async (match) => Exercise.aggregate([{ $match: match }, { $sample: { size: 4 } }, { $project: { _id: 1 } }])
   let picked = await sample({ _id: { $nin: triedIds } })
   if (picked.length === 0) picked = await sample({})
   const suggestions = await Exercise.find({ _id: { $in: picked.map((p) => p._id) } }).populate('author', 'name')
@@ -75,9 +104,13 @@ router.get('/', async (req, res) => {
   res.json({
     totalSessions,
     averageScore: lastWeek[0] ? Math.round(lastWeek[0].avg) : null,
+    previousAverageScore: weekBefore[0] ? Math.round(weekBefore[0].avg) : null,
     minutesThisWeek: Math.floor((thisWeek[0]?.seconds ?? 0) / 60),
     topArea: areaCounts[0]?._id ?? null,
-    streak: computeStreak(new Set(activeDays.map((d) => d._id)), now),
+    topAreaSessions: areaCounts[0]?.total ?? 0,
+    streak: computeStreak(days, now),
+    recentDays: recentDays(days, now),
+    scoreHistory: history.reverse().map((s) => ({ score: s.score, completedAt: s.completedAt })),
     recentSessions: recent,
     suggestions,
   })

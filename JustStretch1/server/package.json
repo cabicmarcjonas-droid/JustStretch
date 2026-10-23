@@ -7,6 +7,7 @@
     "dev": "node --watch --env-file-if-exists=.env src/index.js",
     "start": "node --env-file-if-exists=.env src/index.js",
     "seed": "node --env-file-if-exists=.env src/seed.js",
+    "backfill": "node --env-file-if-exists=.env scripts/backfill-demo-tracking-metrics.js",
     "test": "node --test --test-concurrency=1 \"test/*.test.js\""
   },
   "dependencies": {

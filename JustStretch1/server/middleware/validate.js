@@ -68,6 +68,19 @@ export function intField(label, { min, max, optional = false } = {}) {
   return optional ? schema.nullish() : schema
 }
 
+// Like intField, but keeps decimals (average angle error, for example).
+export function numberField(label, { min, max, optional = false } = {}) {
+  const between = `The ${label} field must be between ${min} and ${max}.`
+  const schema = z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : v),
+    z
+      .number({ error: (iss) => (missing(iss.input) ? required(label) : `The ${label} field must be a number.`) })
+      .min(min, { error: between })
+      .max(max, { error: between }),
+  )
+  return optional ? schema.nullish() : schema
+}
+
 export function enumField(label, values) {
   return z.enum(values, {
     error: (iss) => (missing(iss.input) ? required(label) : `The selected ${label} is invalid.`),

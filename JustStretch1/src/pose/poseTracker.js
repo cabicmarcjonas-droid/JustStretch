@@ -14,7 +14,10 @@
  * All per-frame work writes straight to the canvas and DOM refs, never to React state.
  */
 import { DrawingUtils, FilesetResolver, HandLandmarker, PoseLandmarker } from '@mediapipe/tasks-vision'
+import { AudioCoach } from '../lib/audioCoach.js'
+import { DelayInjector, parseDelayOptions } from '../lib/delayInjector.js'
 import { emit } from '../lib/eventBus.js'
+import { PerfMonitor } from '../lib/perfMonitor.js'
 import {
   SessionScorer,
   compareToReference,
@@ -49,6 +52,26 @@ const MIN_JUDGED_FRAMES = 30
 // competes with pose inference.
 const LIVE_PANEL_INTERVAL_MS = 250
 
+// Per-frame budget from the paper: 33 ms per frame keeps 30 FPS.
+const FRAME_BUDGET_MS = 33
+
+// The hand model costs about as much as the pose model, and the finger skeleton is mostly
+// cosmetic, so it does not run on every frame; the last result is reused in between.
+// Exercises that target the hands run it every frame, everything else every 2nd frame.
+// If the device cannot stay inside the frame budget, the interval grows (never shrinks
+// again within the same session, so it cannot flip back and forth).
+const HAND_INTERVAL_BASE = 2
+const HAND_INTERVAL_BASE_HANDS = 1
+const HAND_INTERVAL_MAX = 6
+const HAND_INTERVAL_MAX_HANDS = 3
+const BACKOFF_CHECK_EVERY = 30 // frames
+const BACKOFF_WARMUP = 60 // frames, so the slow first inferences don't trigger a back-off
+
+// Same threshold computeUserAngles uses, so "not visible" means the same thing everywhere.
+const MIN_VISIBILITY = 0.6
+// About a third of a second at 30 FPS before the step-back message appears.
+const UNSEEN_FRAMES_BEFORE_PROMPT = 10
+
 /**
  * @param {object} els   Element refs: video, canvas, overlay, startButton, stopButton, timer,
  *                       setRep, status, livePanel, liveScore, liveFrames, liveNote, liveTable,
@@ -76,9 +99,12 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     cameraWarningText,
     retryButton,
     endSessionButton,
+    soundButton,
   } = els
 
-  const ctx = canvas.getContext('2d')
+  // The video frame covers the whole canvas, so the canvas needs no alpha channel
+  // and no clearRect before each frame.
+  const ctx = canvas.getContext('2d', { alpha: false })
   const drawingUtils = new DrawingUtils(ctx)
   const highlighted = new Set(landmarks)
   const highlightedConnections = PoseLandmarker.POSE_CONNECTIONS.filter(
@@ -87,12 +113,71 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
   const bodyOnlyConnections = PoseLandmarker.POSE_CONNECTIONS.filter(
     ({ start, end }) => !POSE_HAND_POINTS.has(start) && !POSE_HAND_POINTS.has(end),
   )
+  // Same filter as above for the highlighted joints, done once instead of on every frame.
+  const highlightedBodyOnlyConnections = highlightedConnections.filter(
+    ({ start, end }) => !POSE_HAND_POINTS.has(start) && !POSE_HAND_POINTS.has(end),
+  )
+
+  const baseHandInterval = highlightHands ? HAND_INTERVAL_BASE_HANDS : HAND_INTERVAL_BASE
+  const maxHandInterval = highlightHands ? HAND_INTERVAL_MAX_HANDS : HAND_INTERVAL_MAX
+
+  // ?perf in the URL prints one console line per second and exposes window.__justStretchPerf.
+  const perfLog = new URLSearchParams(window.location.search).has('perf')
+  const perf = new PerfMonitor({ budgetMs: FRAME_BUDGET_MS, log: perfLog })
+  if (perfLog) window.__justStretchPerf = perf
+
+  // Test tools for the paper, only with ?perf:
+  //   &delay=100   Test Case 2 synthetic delay (see lib/delayInjector.js for the options)
+  //   &trial=60    stop the session by itself after 60 seconds, for timed trials
+  const delay = new DelayInjector(perfLog ? parseDelayOptions() : null)
+  const trialSeconds = perfLog ? Math.max(0, Number.parseInt(new URLSearchParams(window.location.search).get('trial'), 10) || 0) : 0
+  let trialId = null
+
+  // Landmarks that must be in view for the stretch to be judged. The pose model's rough
+  // hand points (17-22) are left out because their visibility is low even when you are in
+  // frame. Falls back to shoulders and hips when nothing else is highlighted.
+  const trackedPoints = [...highlighted].filter((index) => !POSE_HAND_POINTS.has(index))
+  const requiredPoints = trackedPoints.length ? trackedPoints : [11, 12, 23, 24]
+  const targetsInFrame = (pose) =>
+    requiredPoints.every((index) => {
+      const p = pose[index]
+      return p && (p.visibility ?? 1) >= MIN_VISIBILITY && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1
+    })
+
+  // "left_elbow" -> "left elbow", for the spoken cue.
+  const spokenName = (name) => name.replace(/_/g, ' ')
+  const worstJointName = (result) => {
+    let worst = null
+    for (const [name, joint] of Object.entries(result.perJoint)) {
+      if (!joint.ok && (!worst || joint.errorDeg > worst.errorDeg)) worst = { name, errorDeg: joint.errorDeg }
+    }
+    return worst ? spokenName(worst.name) : null
+  }
+
+  // Spoken cues (Web Speech API, no audio files). The coach decides what is worth saying.
+  const coach = new AudioCoach()
+  const refreshSoundButton = () => {
+    if (!soundButton) return
+    soundButton.hidden = !coach.supported
+    soundButton.textContent = coach.enabled ? 'Sound on' : 'Sound off'
+    soundButton.setAttribute('aria-pressed', String(coach.enabled))
+  }
+  const toggleSound = () => {
+    coach.setEnabled(!coach.enabled)
+    coach.unlock() // this click is a user gesture, so speech is allowed from here on
+    refreshSoundButton()
+  }
+  refreshSoundButton()
 
   let destroyed = false
   let landmarker = null
   let handLandmarker = null
   let stream = null
-  let frameId = null
+  let frameId = null // requestAnimationFrame handle (fallback loop)
+  let vfcId = null // requestVideoFrameCallback handle (preferred loop)
+  let vfcSeen = 0
+  let watchdogId = null
+  let lastPresented = null
   let timerId = null
   let startedAt = null
   let lastVideoTime = -1
@@ -143,14 +228,30 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
         : `Set ${set} of ${totalSets} · Rep ${rep} of ${totalRepsPerSet} (${repsDone}/${totalReps})`
   }
 
+  let frameCount = 0
+  let unseenFrames = 0
+  let handInterval = baseHandInterval
+  let handCache = []
+
   // Blender reference pose for this exercise. Stays null when there is none,
   // in which case the page behaves exactly as before (manual slider only).
   let reference = null
   let scorer = new SessionScorer()
   let latest = null
   let smoothed = {}
+  // Camera frames that reached us but produced no skeleton, so they could not be
+  // judged. Used as the fallback when the browser cannot report dropped frames.
+  let noPoseFrames = 0
 
+  // Writing the same text to the DOM 30 times a second still costs layout work,
+  // so the status line is only touched when it actually changes.
+  let statusKey = ''
   const setStatus = (message, tone = 'muted') => {
+    const key = `${tone}|${message}`
+    if (key === statusKey) {
+      return
+    }
+    statusKey = key
     statusEl.textContent = message
     statusEl.dataset.tone = tone
   }
@@ -160,7 +261,6 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     const s = seconds % 60
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   }
-
   const elapsedSeconds = () => {
     if (!startedAt) return 0
     const end = pausedAt ?? performance.now()
@@ -386,24 +486,31 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     }
   }
 
-  // 3–5. Detection loop: draw the frame, the full skeleton, then the target joints.
-  const renderFrame = () => {
+  // 3–5. One camera frame: detect, draw the frame, the full skeleton, then the target joints.
+  //   captureTime  when the camera captured the frame (performance.now() clock), if the browser says
+  //   dropped      camera frames skipped since the last one we processed, or null if unknown
+  //   sourceFrame  the camera's own frame number, or null if the browser does not report it
+  const processFrame = (captureTime, dropped, sourceFrame = null) => {
     if (destroyed || !landmarker) {
       return
     }
-    frameId = requestAnimationFrame(renderFrame)
 
-    if (video.readyState < 2 || video.currentTime === lastVideoTime) {
-      return
+    const t0 = performance.now()
+    frameCount += 1
+    // Test Case 2: holds this frame up when ?perf&delay=... picked it. 0 for every other frame.
+    const injectedMs = delay.maybeDelay(frameCount)
+
+    const pose = landmarker.detectForVideo(video, t0).landmarks?.[0]
+
+    if (handLandmarker && frameCount % handInterval === 0) {
+      handCache = handLandmarker.detectForVideo(video, t0).landmarks ?? []
     }
-    lastVideoTime = video.currentTime
-
-    const timestamp = performance.now()
-    const pose = landmarker.detectForVideo(video, timestamp).landmarks?.[0]
-    const hands = handLandmarker?.detectForVideo(video, timestamp).landmarks ?? []
+    const hands = handCache
     const handsFound = hands.length > 0
+    // The camera gave us a frame but the pose model found nobody in it.
+    if (!pose?.length) noPoseFrames += 1
+    const tInference = performance.now()
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
     // Compare the live pose with the Blender reference (only when one exists).
@@ -423,10 +530,21 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
       latest = compareToReference(angles, reference, (performance.now() - startedAt) / 1000)
       scorer.add(latest)
     }
+    const tProcess = performance.now()
 
-    updateLivePanel(performance.now())
+    updateLivePanel(tProcess)
 
-    if (latest) {
+    const inFrame = Boolean(pose?.length) && targetsInFrame(pose)
+    unseenFrames = inFrame ? 0 : unseenFrames + 1
+
+    if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
+      setStatus(
+        pose?.length
+          ? 'Step back a little so your whole upper body is in frame.'
+          : 'No body detected. Step back so the camera can see you.',
+        'warn',
+      )
+    } else if (latest) {
       setStatus(
         latest.good ? 'Good form. Keep it up.' : 'Adjust your form: red joints are off the reference.',
         latest.good ? 'ok' : 'warn',
@@ -434,6 +552,14 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     } else {
       setStatus('Tracking. Green joints are the ones this stretch targets.', 'ok')
     }
+
+    coach.update({
+      now: tProcess,
+      inFrame,
+      tracked: Boolean(latest),
+      good: Boolean(latest?.good),
+      worstJoint: latest && !latest.good ? worstJointName(latest) : null,
+    })
 
     if (pose?.length) {
       // Skip the pose model's coarse hand points when real finger tracking is available.
@@ -448,11 +574,10 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
         { color: MUTED_POINT, fillColor: MUTED_POINT, radius: 2, lineWidth: 1 },
       )
 
-      drawingUtils.drawConnectors(
-        pose,
-        highlightedConnections.filter(({ start, end }) => showPoint(start) && showPoint(end)),
-        { color: ACCENT, lineWidth: 5 },
-      )
+      drawingUtils.drawConnectors(pose, handsFound ? highlightedBodyOnlyConnections : highlightedConnections, {
+        color: ACCENT,
+        lineWidth: 5,
+      })
       drawingUtils.drawLandmarks(
         pose.filter((_, index) => highlighted.has(index) && showPoint(index)),
         { color: '#ffffff', fillColor: ACCENT, radius: 7, lineWidth: 2 },
@@ -483,8 +608,37 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
           : { color: MUTED_POINT, fillColor: MUTED_POINT, radius: 2, lineWidth: 1 },
       )
     }
-  }
 
+    // Latency runs from the camera's capture time to the end of drawing. It stops there,
+    // not at the screen: the browser still needs up to one display refresh to show it.
+    // Without a usable capture time it starts at the beginning of this function instead.
+    const tDone = performance.now()
+    const age = tDone - captureTime
+    const fromCapture = Number.isFinite(captureTime) && age >= 0 && age < 2000
+    perf.record({
+      inferenceMs: tInference - t0,
+      processMs: tProcess - t0,
+      latencyMs: fromCapture ? age : tDone - t0,
+      fromCapture,
+      poseFound: Boolean(pose?.length),
+      dropped,
+      now: tDone,
+      frameId: frameCount,
+      sourceFrame,
+      injectedMs,
+    })
+
+    // Back off the hand model if this device cannot keep up with the frame budget.
+    if (
+      frameCount >= BACKOFF_WARMUP &&
+      frameCount % BACKOFF_CHECK_EVERY === 0 &&
+      handInterval < maxHandInterval &&
+      perf.emaProcessMs > FRAME_BUDGET_MS * 0.9
+    ) {
+      handInterval += 1
+      if (perfLog) console.info(`[perf] over budget, hand model now runs every ${handInterval} frames`)
+    }
+  }
   // ---- Camera status, pause and recovery -----------------------------------
   const showCameraWarning = (visible, message) => {
     if (!cameraWarning) return
@@ -500,6 +654,58 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     trackHandlers = []
   }
 
+  // Preferred loop: the browser calls this once per new camera frame, so nothing is polled
+  // and the metadata says when the frame was captured and how many frames were skipped.
+  const onVideoFrame = (_now, metadata) => {
+    if (destroyed || !landmarker) {
+      return
+    }
+    vfcId = video.requestVideoFrameCallback(onVideoFrame)
+    vfcSeen += 1
+
+    let dropped = null
+    if (typeof metadata.presentedFrames === 'number') {
+      dropped = lastPresented === null ? 0 : Math.max(0, metadata.presentedFrames - lastPresented - 1)
+      lastPresented = metadata.presentedFrames
+    }
+    processFrame(metadata.captureTime, dropped, typeof metadata.presentedFrames === 'number' ? metadata.presentedFrames : null)
+  }
+
+  // Fallback loop for browsers without requestVideoFrameCallback: poll on every display
+  // refresh and skip refreshes where the camera has no new frame.
+  const renderFrame = () => {
+    if (destroyed || !landmarker) {
+      return
+    }
+    frameId = requestAnimationFrame(renderFrame)
+
+    if (video.readyState < 2 || video.currentTime === lastVideoTime) {
+      return
+    }
+    lastVideoTime = video.currentTime
+    processFrame(undefined, null)
+  }
+
+  const startLoop = () => {
+    vfcSeen = 0
+    lastPresented = null
+
+    if (!('requestVideoFrameCallback' in video)) {
+      frameId = requestAnimationFrame(renderFrame)
+      return
+    }
+
+    vfcId = video.requestVideoFrameCallback(onVideoFrame)
+    // Some browsers never call it for a hidden <video>. If it stays silent, poll instead.
+    watchdogId = setTimeout(() => {
+      if (vfcSeen === 0 && !destroyed && stream) {
+        video.cancelVideoFrameCallback(vfcId)
+        vfcId = null
+        frameId = requestAnimationFrame(renderFrame)
+      }
+    }, 1500)
+  }
+
   const stopTracks = () => {
     clearTrackHandlers()
     clearTimeout(stallTimer)
@@ -508,14 +714,17 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     stream = null
     video.srcObject = null
   }
-
   const pauseForCamera = () => {
     if (startedAt == null || sessionEnded || pausedByCamera) return
     pausedByCamera = true
     pausedAt = performance.now()
     cancelAnimationFrame(frameId)
+    if (vfcId !== null) video.cancelVideoFrameCallback?.(vfcId)
+    clearTimeout(watchdogId)
     clearInterval(timerId)
     frameId = null
+    vfcId = null
+    watchdogId = null
     timerId = null
     clearTimeout(stallTimer)
     stallTimer = null
@@ -549,7 +758,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     timerId = setInterval(tick, 250)
     setRunning(true)
     setStatus('Camera reconnected. Session resumed.', 'ok')
-    renderFrame()
+    startLoop()
   }
 
   const handleCameraLost = (reason) => {
@@ -562,8 +771,12 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
       pausedByCamera = true
       pausedAt = performance.now()
       cancelAnimationFrame(frameId)
+      if (vfcId !== null) video.cancelVideoFrameCallback?.(vfcId)
+      clearTimeout(watchdogId)
       clearInterval(timerId)
       frameId = null
+      vfcId = null
+      watchdogId = null
       timerId = null
       return
     }
@@ -595,8 +808,15 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
   // Ends the loop and the timer, and releases the camera.
   const halt = () => {
     cancelAnimationFrame(frameId)
+    if (vfcId !== null) video.cancelVideoFrameCallback?.(vfcId)
+    clearTimeout(watchdogId)
     clearInterval(timerId)
+    clearTimeout(trialId)
+    trialId = null
+    coach.stop()
     frameId = null
+    vfcId = null
+    watchdogId = null
     timerId = null
     stopTracks()
   }
@@ -637,11 +857,24 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
 
     // Everything the results card needs. `joints` only lists joints that were judged at least once.
     const progress = progressAt(seconds)
+    const perfSummary = perf.summary()
+    if (perfLog) console.log('[perf] session summary', perfSummary)
     const detail = {
       sessionId: sessionKey,
       seconds,
       reason,
       score: suggested,
+      perf: perfSummary,
+      // ?perf only: the full per-frame log and the Test Case 2 results, for the download buttons.
+      perfLog: perfLog
+        ? perf.exportLog({
+            videoUrl: videoUrl ?? null,
+            trialSeconds: trialSeconds || null,
+            delay: delay.describe(),
+            sessionSeconds: seconds,
+            userAgent: navigator.userAgent,
+          })
+        : null,
       summary: {
         hasReference: Boolean(reference),
         camera: reference?.camera ?? null,
@@ -649,6 +882,12 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
         judgedFrames: summary.judgedFrames,
         goodFrames: summary.goodFrames,
         skippedFrames: summary.skippedFrames,
+        // The browser's own dropped-frame count when it reports one, otherwise the
+        // frames we could not use because no body was found.
+        droppedFrames: perfSummary.droppedFrames ?? noPoseFrames,
+        // The raw score, without the minimum-judged-frames check the suggestion
+        // uses, so the session can store what the tracker actually measured.
+        trackingScore: summary.score,
         totalSets,
         repsPerSet: totalRepsPerSet,
         totalReps,
@@ -711,6 +950,9 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
       return
     }
 
+    // Must run inside the click, before the first await, or iOS Safari blocks later speech.
+    coach.unlock()
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus(cameraErrorMessage({ name: 'SecurityError' }), 'error')
       return
@@ -722,7 +964,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     let acquired
     try {
       acquired = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
+        video: { width: 640, height: 480, frameRate: { ideal: 30 } },
         audio: false,
       })
     } catch (error) {
@@ -738,7 +980,6 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
       acquired.getTracks().forEach((track) => track.stop())
       return
     }
-
     attachStream(acquired)
     try {
       await video.play()
@@ -766,13 +1007,26 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     scorer = new SessionScorer()
     latest = null
     smoothed = {}
+    noPoseFrames = 0
+    frameCount = 0
+    unseenFrames = 0
+    coach.reset()
+    handCache = []
+    handInterval = baseHandInterval
+    perf.reset()
+    delay.reset()
     resetLivePanel()
     timerEl.textContent = formatElapsed(0)
     updateProgress(0)
     timerId = setInterval(tick, 250)
 
     setRunning(true)
-    renderFrame()
+    startLoop()
+
+    if (trialSeconds) {
+      setStatus(`Camera ready. This trial stops by itself after ${trialSeconds} seconds.`, 'ok')
+      trialId = setTimeout(stop, trialSeconds * 1000)
+    }
   }
 
   // 6. Stop: end the loop, release the camera, hand the duration to the score form.
@@ -802,6 +1056,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
 
   startButton.addEventListener('click', start)
   stopButton.addEventListener('click', stop)
+  soundButton?.addEventListener('click', toggleSound)
   retryButton?.addEventListener('click', retryCamera)
   endSessionButton?.addEventListener('click', onEndSession)
   video.addEventListener('error', onVideoError)
@@ -826,6 +1081,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     destroyed = true
     startButton.removeEventListener('click', start)
     stopButton.removeEventListener('click', stop)
+    soundButton?.removeEventListener('click', toggleSound)
     retryButton?.removeEventListener('click', retryCamera)
     endSessionButton?.removeEventListener('click', onEndSession)
     video.removeEventListener('error', onVideoError)
@@ -834,6 +1090,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     window.removeEventListener('pagehide', onPageHide)
     clearTimeout(stallTimer)
     stallTimer = null
+    if (window.__justStretchPerf === perf) delete window.__justStretchPerf
     halt()
     closeModels()
   }

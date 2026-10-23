@@ -1,31 +1,26 @@
 import { Link } from 'react-router-dom'
+import { btn } from '../lib/ui.js'
 
-const base = 'inline-flex items-center px-3.5 py-2 text-sm font-medium border border-line bg-white'
-const active = 'text-ink hover:border-ink'
-const disabled = 'text-muted/60 cursor-default'
+const square = 'inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-bold'
 
-function PageLink({ to, page, current, children, className = '', label }) {
+function PageLink({ to, page, children, label }) {
   if (page === null) {
     return (
-      <span aria-disabled="true" className={`${base} ${disabled} ${className}`}>
+      <span aria-disabled="true" className={`${btn.secondary} ${btn.md} opacity-50 cursor-default`}>
         {children}
       </span>
     )
   }
   return (
-    <Link
-      to={to(page)}
-      aria-label={label}
-      aria-current={current ? 'page' : undefined}
-      className={`${base} ${current ? 'bg-accent-soft text-accent-dark border-accent/30 cursor-default' : active} ${className}`}
-    >
+    <Link to={to(page)} aria-label={label} className={`${btn.secondary} ${btn.md}`}>
       {children}
     </Link>
   )
 }
 
 // `to(page)` returns the URL for a page, so filters in the query string are kept.
-export default function Pagination({ meta, perPage, to }) {
+// `noun` names what is being paged ("exercises", "sessions").
+export default function Pagination({ meta, perPage, to, noun = 'results' }) {
   const { page, lastPage, total } = meta
   if (lastPage <= 1) return null
 
@@ -34,35 +29,40 @@ export default function Pagination({ meta, perPage, to }) {
   const pages = Array.from({ length: lastPage }, (_, i) => i + 1)
 
   return (
-    <nav role="navigation" aria-label="Pagination Navigation" className="flex items-center justify-between gap-4">
-      <div className="flex flex-1 justify-between sm:hidden">
-        <PageLink to={to} page={page > 1 ? page - 1 : null} className="rounded-xl">
+    <nav role="navigation" aria-label="Pagination Navigation" className="flex flex-wrap items-center justify-between gap-4">
+      <p className="text-sm text-muted">
+        Showing{' '}
+        <span className="font-semibold text-ink">
+          {from}–{upTo}
+        </span>{' '}
+        of <span className="font-semibold text-ink">{total}</span> {noun}
+      </p>
+
+      <div className="flex items-center gap-2">
+        <PageLink to={to} page={page > 1 ? page - 1 : null} label="Previous page">
           Previous
         </PageLink>
-        <PageLink to={to} page={page < lastPage ? page + 1 : null} className="rounded-xl">
+        <span className="hidden items-center gap-2 sm:inline-flex">
+          {pages.map((number) =>
+            number === page ? (
+              <span key={number} aria-current="page" className={`${square} bg-accent text-white`}>
+                {number}
+              </span>
+            ) : (
+              <Link
+                key={number}
+                to={to(number)}
+                aria-label={`Go to page ${number}`}
+                className={`${square} border border-slate-300 bg-white text-ink hover:bg-slate-50`}
+              >
+                {number}
+              </Link>
+            ),
+          )}
+        </span>
+        <PageLink to={to} page={page < lastPage ? page + 1 : null} label="Next page">
           Next
         </PageLink>
-      </div>
-
-      <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-        <p className="text-sm text-muted">
-          Showing <span className="font-medium text-ink">{from}</span> to <span className="font-medium text-ink">{upTo}</span> of{' '}
-          <span className="font-medium text-ink">{total}</span> results
-        </p>
-
-        <span className="inline-flex rounded-xl shadow-sm">
-          <PageLink to={to} page={page > 1 ? page - 1 : null} label="Previous" className="rounded-s-xl">
-            &lsaquo;
-          </PageLink>
-          {pages.map((number) => (
-            <PageLink key={number} to={to} page={number} current={number === page} label={`Go to page ${number}`} className="-ms-px">
-              {number}
-            </PageLink>
-          ))}
-          <PageLink to={to} page={page < lastPage ? page + 1 : null} label="Next" className="-ms-px rounded-e-xl">
-            &rsaquo;
-          </PageLink>
-        </span>
       </div>
     </nav>
   )

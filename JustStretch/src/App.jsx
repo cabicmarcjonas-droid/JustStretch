@@ -1,80 +1,68 @@
-import { useState } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import Navbar from './components/Navbar.jsx'
-import Footer from './components/Footer.jsx'
-import Home from './pages/Home.jsx'
-import About from './pages/About.jsx'
-import Contact from './pages/Contact.jsx'
-import Session from './pages/session.jsx'
-import { Login } from './components/Login.jsx'
-
-// A reusable "frame" that puts Navbar + Footer around any page
-function SiteLayout({ children }) {
-  return (
-    <>
-      <Navbar />
-      <main>{children}</main>
-      <Footer />
-    </>
-  )
-}
+import { useState, useCallback } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import MainPage from "./pages/MainPage";
+import ExercisePage from "./pages/ExercisePage";
+import { useTheme } from "./hooks/useTheme";
+import { UserContext, ThemeContext } from "./context/AppContext";
 
 // The "bouncer" — checks login status before showing a page
 function ProtectedRoute({ isLoggedIn, children }) {
   if (!isLoggedIn) {
     // Not logged in? Send them back to Login.
-    return <Navigate to="/" replace />
+    return <Navigate to="/" replace />;
   }
-  // Logged in? Show the page inside the normal site layout.
-  return <SiteLayout>{children}</SiteLayout>
+  // Logged in? Show the page.
+  return children;
 }
 
-export default function App() {
-  // isLoggedIn = the switch. Starts OFF (false).
-  // setIsLoggedIn = the only way to turn it ON.
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  const theme = useTheme();
+
+  const handleLoginSuccess = useCallback((email) => {
+    setIsLoggedIn(true);
+    if (email) setUserEmail(email);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setIsLoggedIn(false);
+    setUserEmail("");
+  }, []);
 
   return (
-    <Routes>
-      {/* Login page. When login succeeds, flip the switch ON. */}
-      <Route
-        path="/"
-        element={<Login onLoginSuccess={() => setIsLoggedIn(true)} />}
-      />
-
-      {/* Every page below is behind the bouncer */}
-      <Route
-        path="/home"
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            <Home />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/about"
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            <About />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/contact"
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            <Contact />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/session"
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            <Session />
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
-  )
+    <ThemeContext.Provider value={theme}>
+      <UserContext.Provider value={{ isLoggedIn, userEmail, onLogout: handleLogout }}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route
+              path="/login"
+              element={<LoginPage onLoginSuccess={handleLoginSuccess} />}
+            />
+            <Route
+              path="/main"
+              element={
+                <ProtectedRoute isLoggedIn={isLoggedIn}>
+                  <MainPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/exercise/:id"
+              element={
+                <ProtectedRoute isLoggedIn={isLoggedIn}>
+                  <ExercisePage />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+      </UserContext.Provider>
+    </ThemeContext.Provider>
+  );
 }
+
+export default App;

@@ -6,6 +6,7 @@ import {
   enumField,
   intField,
   newPasswordField,
+  numberField,
   required,
   stringField,
   withConfirmation,
@@ -56,17 +57,78 @@ export const exerciseSchema = z.object({
   ),
 })
 
-export const sessionSchema = z.object({
-  score: intField('score', { min: 0, max: 100 }),
-  durationSeconds: intField('duration seconds', { min: 0, max: 7200, optional: true }),
-  notes: stringField('notes', { max: 500, optional: true }),
-  clientId: stringField('client id', { max: 64, optional: true }),
+// One tracked joint: how far off the reference it was on average, and how often
+// it stayed inside its margin of error.
+const jointResultSchema = z.object({
+  joint: z
+    .string({ error: 'The joint field must be a string.' })
+    .max(40, { error: 'The joint field must not be greater than 40 characters.' }),
+  avgError: numberField('average error', { min: 0, max: 180 }),
+  timeInRangePct: intField('time in range percentage', { min: 0, max: 100 }),
 })
+
+// avg / min / max / p95 of one timing, in milliseconds.
+const timingStats = z
+  .object({
+    avg: numberField('average', { min: 0, max: 60000, optional: true }),
+    min: numberField('minimum', { min: 0, max: 60000, optional: true }),
+    max: numberField('maximum', { min: 0, max: 60000, optional: true }),
+    p95: numberField('95th percentile', { min: 0, max: 60000, optional: true }),
+  })
+  .nullish()
+
+const pct = (label) => numberField(label, { min: 0, max: 100, optional: true })
+
+const perfSchema = z.object({
+  frames: intField('perf frames', { min: 0, max: 1000000, optional: true }),
+  seconds: numberField('perf seconds', { min: 0, max: 7200, optional: true }),
+  fps: numberField('fps', { min: 0, max: 1000, optional: true }),
+  latencyMs: timingStats,
+  processMs: timingStats,
+  droppedPct: pct('dropped percentage'),
+  noPosePct: pct('no pose percentage'),
+  overBudgetPct: pct('over budget percentage'),
+  injectedDelays: intField('injected delays', { min: 0, max: 100000, optional: true }),
+  outOfOrderFrames: intField('out of order frames', { min: 0, max: 1000000, optional: true }),
+})
+
+export const sessionSchema = z
+  .object({
+    score: intField('score', { min: 0, max: 100 }),
+    durationSeconds: intField('duration seconds', { min: 0, max: 7200, optional: true }),
+    notes: stringField('notes', { max: 500, optional: true }),
+    // Makes an automatic save idempotent: the same workout is only stored once.
+    clientId: stringField('client id', { max: 64, optional: true }),
+    // Tracking results from the camera. Optional: a stretch without a reference
+    // pose is scored by hand and has no joint data.
+    jointResults: z
+      .array(jointResultSchema, { error: 'The joint results field must be an array.' })
+      .max(24, { error: 'The joint results field must not have more than 24 items.' })
+      .optional(),
+    judgedFrames: intField('judged frames', { min: 0, max: 100000, optional: true }),
+    framesWithinMargin: intField('frames within margin', { min: 0, max: 100000, optional: true }),
+    trackingScore: intField('tracking score', { min: 0, max: 100, optional: true }),
+    droppedFrames: intField('dropped frames', { min: 0, max: 100000, optional: true }),
+    fatigue: intField('fatigue', { min: 1, max: 5, optional: true }),
+    // Performance numbers from perfMonitor.js, sent only in ?perf mode.
+    perf: perfSchema.nullish(),
+  })
+  .superRefine((data, ctx) => {
+    // Frames within the margin are a subset of the judged frames.
+    if (data.framesWithinMargin != null && data.judgedFrames != null && data.framesWithinMargin > data.judgedFrames) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['framesWithinMargin'],
+        message: 'The frames within margin field cannot be greater than the judged frames field.',
+      })
+    }
+  })
 
 // Editing a saved session (e.g. adding notes after an automatic save).
 export const sessionUpdateSchema = z.object({
   score: intField('score', { min: 0, max: 100, optional: true }),
   notes: stringField('notes', { max: 500, optional: true }),
+  fatigue: intField('fatigue', { min: 1, max: 5, optional: true }),
 })
 
 export const registerSchema = withConfirmation(
@@ -88,6 +150,52 @@ export const profileSchema = z.object({
   name: stringField('name', { max: 255 }),
   email: emailField(),
 })
+
+// The two flexibility tests that are scored from 1 to 5.
+const RANGE_TESTS = ['neck_range', 'shoulder_range']
+
+// One flexibility measurement: which test, the number and the unit.
+const measurementSchema = z.object({
+  test: z
+    .string({ error: 'The test field must be a string.' })
+    .max(40, { error: 'The test field must not be greater than 40 characters.' }),
+  value: numberField('value', { min: 0, max: 1000 }),
+  unit: z
+    .string({ error: 'The unit field must be a string.' })
+    .max(20, { error: 'The unit field must not be greater than 20 characters.' }),
+})
+
+// The body map and the starting flexibility. Nothing else about the account
+// can be changed through this route.
+export const bodyMapSchema = z
+  .object({
+    painAreas: z
+      .array(enumField('pain area', BODY_AREA_VALUES), { error: 'The pain areas field must be an array.' })
+      .max(10, { error: 'The pain areas field must not have more than 10 items.' })
+      .optional(),
+    baseline: z
+      .object({
+        assessedAt: z.preprocess(
+          (v) => (v === '' || v === null || v === undefined ? undefined : new Date(v)),
+          z.date({ error: 'The assessed at field must be a date.' }).nullish(),
+        ),
+        measurements: z.array(measurementSchema, { error: 'The measurements field must be an array.' }).max(10).optional(),
+      })
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    // The two range tests are scored from 1 to 5.
+    for (const [index, measurement] of (data.baseline?.measurements ?? []).entries()) {
+      if (!RANGE_TESTS.includes(measurement.test)) continue
+      if (!Number.isInteger(measurement.value) || measurement.value < 1 || measurement.value > 5) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['baseline', 'measurements', index, 'value'],
+          message: `The ${measurement.test.replace(/_/g, ' ')} must be a whole number between 1 and 5.`,
+        })
+      }
+    }
+  })
 
 export const passwordSchema = withConfirmation(
   z.object({

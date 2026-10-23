@@ -7,6 +7,7 @@ import mongoose from 'mongoose'
 import { pathToFileURL } from 'node:url'
 import { Exercise } from '../models/Exercise.js'
 import { StretchSession } from '../models/StretchSession.js'
+import { Therapist } from '../models/Therapist.js'
 import { User } from '../models/User.js'
 
 export const DEMO_EMAIL = 'demo@juststretch.test'
@@ -15,7 +16,7 @@ const TOTAL_SESSIONS = 40
 const DEMO_SESSIONS = 12
 // Indexes in the curated list authored by the demo account, so edit/delete
 // (and the 403 on everyone else's exercises) can be demonstrated.
-const DEMO_OWNED = [0, 4, 8]
+const DEMO_OWNED = [0, 3, 4]
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -64,107 +65,129 @@ const CURATED = [
     videoUrl: '/videos/neck_side_tilt.mp4',
   },
   {
-    title: 'Chin Tuck',
-    targetArea: 'neck',
-    difficulty: 'beginner',
-    description: 'Counters forward-head posture by gently drawing the head back over the spine.',
-    instructions: 'Sit or stand with your back straight and eyes looking forward.\nGlide your chin straight back as if making a double chin.\nHold for 5 seconds, feeling a stretch at the base of the skull.\nRelax and repeat 10 times.',
-  },
-  {
     title: 'Shoulder Rolls',
     targetArea: 'shoulders',
     difficulty: 'beginner',
     description: 'A simple warm-up that loosens the shoulders and upper trapezius after long periods at a desk.',
-    instructions: 'Stand with arms hanging loosely at your sides.\nLift both shoulders up toward your ears.\nRoll them back and down in a slow circle.\nDo 10 backward rolls, then 10 forward rolls.',
+    instructions: 'Stand with arms hanging loosely at your sides.\nLift both shoulders up toward your ears.\nRoll them back and down in a slow circle.\nKeep the movement smooth and keep breathing steadily.',
+    videoUrl: '/videos/shoulder_rolls.mp4',
   },
   {
     title: 'Cross-Body Shoulder Stretch',
     targetArea: 'shoulders',
     difficulty: 'beginner',
     description: 'Stretches the back of the shoulder and the rear deltoid, which often tighten from carrying bags on one side.',
-    instructions: 'Stand tall and bring your right arm straight across your chest.\nUse your left forearm to gently press the right arm closer to your body.\nKeep the right shoulder down, away from your ear.\nHold for 30 seconds, then switch arms.',
+    instructions: 'Stand tall and bring your right arm straight across your chest.\nUse your left forearm to gently press the right arm closer to your body.\nKeep the right shoulder down, away from your ear.\nHold, then switch arms.',
     videoUrl: '/videos/cross_body_shoulder.mp4',
   },
   {
-    title: 'Doorway Chest Stretch',
-    targetArea: 'chest',
-    difficulty: 'intermediate',
-    description: 'Opens the chest and front of the shoulders to balance out rounded, hunched posture.',
-    instructions: 'Stand in a doorway and place your forearms on the frame, elbows at shoulder height.\nStep one foot forward through the doorway.\nLean your body forward until you feel a stretch across the chest.\nHold for 30 seconds, keeping your back straight.\nStep back and rest before repeating.',
-  },
-  {
-    title: 'Cat-Cow',
-    targetArea: 'upper_back',
-    difficulty: 'beginner',
-    description: 'A flowing movement between arching and rounding the spine that mobilises the upper and middle back.',
-    instructions: 'Start on hands and knees with wrists under shoulders and knees under hips.\nInhale, drop your belly and lift your chest and gaze (cow).\nExhale, round your back toward the ceiling and tuck your chin (cat).\nMove slowly between the two positions for 10 breaths.',
-  },
-  {
-    title: "Child's Pose",
-    targetArea: 'lower_back',
-    difficulty: 'beginner',
-    description: 'A resting stretch that gently lengthens the lower back and hips while calming the breath.',
-    instructions: 'Kneel on the floor with big toes touching and knees apart.\nSit your hips back toward your heels.\nWalk your hands forward and lower your chest toward the floor.\nRest your forehead down and breathe deeply for 30 to 60 seconds.',
-  },
-  {
-    title: 'Knee-to-Chest Stretch',
-    targetArea: 'lower_back',
-    difficulty: 'beginner',
-    description: 'Relieves tension in the lower back and glutes by drawing one knee toward the chest while lying down.',
-    instructions: 'Lie on your back with both knees bent and feet flat.\nHug your right knee toward your chest with both hands.\nKeep your lower back relaxed against the floor.\nHold for 30 seconds, then switch legs.',
-  },
-  {
-    title: 'Figure-Four Hip Stretch',
-    targetArea: 'hips',
-    difficulty: 'intermediate',
-    description: 'Targets the outer hip and piriformis, a common source of hip and buttock tightness.',
-    instructions: 'Lie on your back with both knees bent.\nCross your right ankle over your left knee to make a figure four.\nReach through and hold the back of your left thigh.\nGently pull the left leg toward you until you feel the right hip stretch.\nHold for 30 seconds, then switch sides.',
-  },
-  {
-    title: 'Seated Hamstring Stretch',
-    targetArea: 'hamstrings',
-    difficulty: 'intermediate',
-    description: 'Lengthens the back of the thighs, which can pull on the lower back when tight.',
-    instructions: 'Sit on the floor with your right leg straight and left foot against your inner right thigh.\nSit tall and hinge forward from the hips over the straight leg.\nReach toward your shin or ankle without rounding your back.\nHold for 30 seconds, then switch legs.',
-  },
-  {
-    title: 'Standing Quad Stretch',
-    targetArea: 'quads',
-    difficulty: 'intermediate',
-    description: 'Stretches the front of the thigh and hip flexors while also challenging balance.',
-    instructions: 'Stand next to a wall or chair for support.\nBend your right knee and hold your right ankle behind you.\nKeep your knees together and push your hips slightly forward.\nHold for 30 seconds, then switch legs.',
-  },
-  {
-    title: 'Wall Calf Stretch',
-    targetArea: 'calves',
-    difficulty: 'beginner',
-    description: 'Loosens tight calves that can contribute to foot, ankle and knee discomfort.',
-    instructions: 'Stand facing a wall with your hands on it at chest height.\nStep your right foot back and keep the heel pressed to the floor.\nBend your front knee and lean toward the wall.\nHold for 30 seconds, then switch legs.',
-  },
-  {
-    title: 'Wrist Flexor Stretch',
-    targetArea: 'wrists',
-    difficulty: 'beginner',
-    description: 'Relieves tension in the forearm and wrist from typing, phone use and gripping.',
-    instructions: 'Extend your right arm in front of you, palm facing up.\nUse your left hand to gently pull the right fingers down and back.\nKeep the elbow straight and shoulders relaxed.\nHold for 20 seconds, then switch hands.',
-  },
-  {
     title: 'Overhead Side Bend',
-    targetArea: 'lower_back',
+    targetArea: 'upper_back',
     difficulty: 'beginner',
     description: 'Stretches the sides of the trunk, from the hips up to the armpits, which stiffen after long hours of sitting.',
     instructions: 'Stand tall with your feet hip-width apart.\nRaise both arms out to the sides and up until your hands meet above your head.\nKeeping your arms overhead, lean your upper body to the right as your hips shift slightly to the left.\nHold for a few slow breaths, then return to centre.\nRepeat on the left side, then lower your arms.',
     videoUrl: '/videos/overhead_side_bend.mp4',
   },
   {
-    title: 'Standing Hamstring Reach',
-    targetArea: 'hamstrings',
+    title: 'Standing Torso Twist',
+    targetArea: 'lower_back',
+    difficulty: 'beginner',
+    description: 'Gently rotates the spine to loosen the lower and mid back and ease stiffness from sitting.',
+    instructions: 'Stand with your feet slightly wider than hip-width and your arms relaxed.\nTurn your upper body to the right, letting your arms swing along with the turn.\nKeep your hips mostly facing forward and your knees soft.\nReturn to centre and repeat on the left side at a slow, steady pace.',
+    videoUrl: '/videos/torso_twist.mp4',
+  },
+  {
+    title: 'Standing Windmill Arms',
+    targetArea: 'shoulders',
     difficulty: 'intermediate',
-    description: 'Lengthens the back of the thighs from a standing position by hinging forward at the hips.',
-    instructions: 'Stand side-on to your camera with your feet hip-width apart.\nKeep your knees straight but not locked.\nHinge forward from the hips and let your arms hang toward your shins.\nHold for a few slow breaths without bouncing.\nRoll back up slowly to standing.',
-    videoUrl: '/videos/standing_hamstring_reach.mp4',
+    description: 'Large arm circles that warm up the shoulder joints and open the chest and upper back.',
+    instructions: 'Stand tall with your feet hip-width apart.\nSwing one arm up and back in a big, smooth circle while the other arm follows in the opposite direction.\nKeep your core braced and avoid leaning back.\nMove slowly and keep breathing steadily.',
+    videoUrl: '/videos/windmill_arms.mp4',
   },
 ]
+
+// The exercises that have a reference pose file, with the joints the camera
+// judges for them (public/poses/pose_*.json). Sessions for these exercises
+// carry the tracking results the camera produced.
+export const TRACKED_JOINTS = {
+  neck_side_tilt: ['neck_tilt'],
+  shoulder_rolls: ['left_shoulder', 'right_shoulder'],
+  cross_body_shoulder: ['left_elbow', 'right_elbow', 'left_shoulder', 'right_shoulder'],
+  overhead_side_bend: ['left_elbow', 'right_elbow', 'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'trunk_lean', 'neck_tilt'],
+  torso_twist: ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'neck_tilt'],
+  windmill_arms: ['left_elbow', 'right_elbow', 'left_shoulder', 'right_shoulder', 'trunk_lean', 'neck_tilt'],
+}
+
+// The pose file name for an exercise video: "/videos/neck_side_tilt.mp4" -> "neck_side_tilt".
+export function poseName(videoUrl) {
+  if (!videoUrl) return null
+  return String(videoUrl)
+    .split('/')
+    .pop()
+    .replace(/\.[^.]+$/, '')
+}
+
+// Tracking results for one session, the way the camera would have reported them.
+function seedTracking(joints) {
+  const judgedFrames = faker.number.int({ min: 180, max: 620 })
+  const framesWithinMargin = faker.number.int({ min: Math.round(judgedFrames * 0.45), max: judgedFrames })
+  const withinPct = Math.round((100 * framesWithinMargin) / judgedFrames)
+
+  return {
+    jointResults: joints.map((joint) => ({
+      joint,
+      avgError: faker.number.float({ min: 1.5, max: 22, fractionDigits: 1 }),
+      timeInRangePct: Math.min(100, Math.max(0, withinPct + faker.number.int({ min: -25, max: 25 }))),
+    })),
+    judgedFrames,
+    framesWithinMargin,
+    trackingScore: withinPct,
+    droppedFrames: faker.number.int({ min: 0, max: 42 }),
+    fatigue: faker.helpers.maybe(() => faker.number.int({ min: 1, max: 5 }), { probability: 0.7 }) ?? null,
+  }
+}
+
+// Sample therapists for the referral feature. These are NOT real people or
+// clinics: replace them with real, consenting contacts before any public use.
+// `placeholder: true` makes the app label them as sample contacts.
+const THERAPISTS = [
+  {
+    name: 'Sample Therapist A',
+    clinic: 'Sample Neck & Shoulder Clinic',
+    areas: ['neck', 'shoulders', 'upper_back', 'chest'],
+    phone: '+63 2 8000 0001',
+    email: 'neck.shoulder@clinic.example.com',
+    address: 'Sample address, Mandaluyong City',
+  },
+  {
+    name: 'Sample Therapist B',
+    clinic: 'Sample Back & Hip Clinic',
+    areas: ['lower_back', 'hips'],
+    phone: '+63 2 8000 0002',
+    email: 'back.hip@clinic.example.com',
+    address: 'Sample address, Pasig City',
+  },
+  {
+    name: 'Sample Therapist C',
+    clinic: 'Sample Sports Rehab Clinic',
+    areas: ['hamstrings', 'quads', 'calves', 'wrists'],
+    phone: '+63 2 8000 0003',
+    email: 'sports.rehab@clinic.example.com',
+    address: 'Sample address, Makati City',
+  },
+  {
+    name: 'Sample Therapist D',
+    clinic: 'Sample General Physical Therapy',
+    areas: [],
+    phone: '+63 2 8000 0004',
+    email: 'general.pt@clinic.example.com',
+    address: 'Sample address, Quezon City',
+  },
+].map((t) => ({ ...t, placeholder: true }))
+
+export async function seedTherapists() {
+  return Therapist.insertMany(THERAPISTS)
+}
 
 async function seedUsers() {
   // One hash reused for every account, like UserFactory's static $password.
@@ -208,6 +231,9 @@ async function seedExercises(demo, others) {
 
 async function seedSessions(demo, others, exercises) {
   const now = Date.now()
+  // The stretches the camera can track, so the demo account's recent sessions
+  // have per-joint results to open.
+  const tracked = exercises.filter((exercise) => TRACKED_JOINTS[poseName(exercise.videoUrl)])
 
   const docs = Array.from({ length: TOTAL_SESSIONS }, (_, index) => {
     const isDemo = index < DEMO_SESSIONS
@@ -220,13 +246,23 @@ async function seedSessions(demo, others, exercises) {
         ? pinned[index]
         : faker.number.int({ min: 60_000, max: 30 * DAY_MS })
 
+    const exercise =
+      isDemo && index < pinned.length && tracked.length > 0 ? tracked[index % tracked.length] : faker.helpers.arrayElement(exercises)
+    const joints = TRACKED_JOINTS[poseName(exercise.videoUrl)]
+    const tracking = joints ? seedTracking(joints) : {}
+
     return {
       user: isDemo ? demo._id : faker.helpers.arrayElement(others)._id,
-      exercise: faker.helpers.arrayElement(exercises)._id,
-      score: faker.number.int({ min: 35, max: 98 }),
+      exercise: exercise._id,
+      // A tracked session scores close to what the camera measured.
+      score:
+        tracking.trackingScore == null
+          ? faker.number.int({ min: 35, max: 98 })
+          : Math.min(100, Math.max(0, tracking.trackingScore + faker.number.int({ min: -6, max: 6 }))),
       durationSeconds: faker.number.int({ min: 60, max: 600 }),
       notes: faker.helpers.maybe(() => faker.helpers.arrayElement(NOTE_POOL), { probability: 0.4 }) ?? null,
       completedAt: new Date(now - ageMs),
+      ...tracking,
     }
   })
 
@@ -237,8 +273,8 @@ export async function seedDatabase() {
   // Fixed seed so every run (and every groupmate's laptop) gets the same data.
   faker.seed(20261016)
 
-  await Promise.all([User.deleteMany({}), Exercise.deleteMany({}), StretchSession.deleteMany({})])
-  await Promise.all([User.init(), Exercise.init(), StretchSession.init()])
+  await Promise.all([User.deleteMany({}), Exercise.deleteMany({}), StretchSession.deleteMany({}), Therapist.deleteMany({})])
+  await Promise.all([User.init(), Exercise.init(), StretchSession.init(), Therapist.init()])
 
   const users = await seedUsers()
   const demo = users.find((u) => u.email === DEMO_EMAIL)
@@ -246,8 +282,9 @@ export async function seedDatabase() {
 
   const exercises = await seedExercises(demo, others)
   await seedSessions(demo, others, exercises)
+  const therapists = await seedTherapists()
 
-  console.log(`[seed] ${users.length} users, ${exercises.length} exercises, ${TOTAL_SESSIONS} sessions. Demo login: ${DEMO_EMAIL} / password`)
+  console.log(`[seed] ${users.length} users, ${exercises.length} exercises, ${TOTAL_SESSIONS} sessions, ${therapists.length} sample therapists. Demo login: ${DEMO_EMAIL} / password`)
 }
 
 // `node src/seed.js` (npm run seed): reset and reseed the database in MONGODB_URI.
