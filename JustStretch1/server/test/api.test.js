@@ -39,6 +39,8 @@ const exerciseBody = (overrides = {}) => ({
   targetArea: 'lower_back',
   difficulty: 'beginner',
   durationMinutes: 3,
+  sets: 2,
+  repsPerSet: 3,
   description: 'Gentle twist.',
   instructions: 'Sit tall.\nTurn right.\n\nHold.',
   benefits: ['Loosens the spine', '', '  ', 'Easy on the back', '', ''],
@@ -106,12 +108,24 @@ describe('exercises', () => {
       'The video URL must be a full link or a path like /videos/stretch.mp4.',
     ])
 
+    // sets/repsPerSet bounds are enforced, and omitting them falls back to 1/1.
+    const outOfRange = await author.post('/api/exercises').send(exerciseBody({ sets: 0, repsPerSet: 99 }))
+    assert.equal(outOfRange.status, 422)
+    assert.equal(outOfRange.body.errors.sets.length, 1)
+    assert.equal(outOfRange.body.errors.repsPerSet.length, 1)
+
+    const defaults = (await author.post('/api/exercises').send(exerciseBody({ title: 'Defaults', sets: undefined, repsPerSet: undefined }))).body.exercise
+    assert.equal(defaults.sets, 1)
+    assert.equal(defaults.repsPerSet, 1)
+
     const created = await author.post('/api/exercises').send(exerciseBody())
     assert.equal(created.status, 201)
     const { exercise } = created.body
     assert.deepEqual(exercise.benefits, ['Loosens the spine', 'Easy on the back'])
     assert.equal(exercise.precautions, null)
     assert.equal(exercise.author.name, 'Author')
+    assert.equal(exercise.sets, 2)
+    assert.equal(exercise.repsPerSet, 3)
 
     const url = `/api/exercises/${exercise.id}`
     assert.equal((await other.put(url).send(exerciseBody({ title: 'Hijack' }))).status, 403)
@@ -174,6 +188,38 @@ describe('sessions', () => {
     await owner.post(`/api/exercises/${exercise.id}/sessions`).send({ score: 70 })
     await owner.delete(`/api/exercises/${exercise.id}`)
     assert.equal(await StretchSession.countDocuments({ exercise: exercise.id }), 0)
+  })
+
+  test('clientId makes saving idempotent and the owner can update a session', async () => {
+    const owner = await signUp('Idem', 'idem@example.com')
+    const other = await signUp('IdemOther', 'idem-other@example.com')
+    const { exercise } = (await owner.post('/api/exercises').send(exerciseBody({ title: 'Idempotent' }))).body
+
+    const first = await owner
+      .post(`/api/exercises/${exercise.id}/sessions`)
+      .send({ score: 70, durationSeconds: 60, clientId: 'session-key-1' })
+    assert.equal(first.status, 201)
+
+    // The same clientId (e.g. an automatic save retried after a dropped response)
+    // returns the first row instead of creating a second one.
+    const second = await owner
+      .post(`/api/exercises/${exercise.id}/sessions`)
+      .send({ score: 99, clientId: 'session-key-1' })
+    assert.equal(second.status, 200)
+    assert.equal(second.body.session.id, first.body.session.id)
+    assert.equal((await owner.get('/api/sessions')).body.meta.total, 1)
+
+    const id = first.body.session.id
+    assert.equal((await other.patch(`/api/sessions/${id}`).send({ notes: 'Not mine' })).status, 403)
+
+    const updated = await owner.patch(`/api/sessions/${id}`).send({ score: 88, notes: 'Better form.' })
+    assert.equal(updated.status, 200)
+    assert.equal(updated.body.session.score, 88)
+    assert.equal(updated.body.session.notes, 'Better form.')
+
+    // A partial update touching only notes leaves the score alone; bad input is rejected.
+    assert.equal((await owner.patch(`/api/sessions/${id}`).send({ notes: 'Only notes.' })).body.session.score, 88)
+    assert.equal((await owner.patch(`/api/sessions/${id}`).send({ score: 200 })).status, 422)
   })
 
   test('dashboard reports stats and suggestions', async () => {

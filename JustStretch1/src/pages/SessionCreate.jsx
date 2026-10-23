@@ -6,6 +6,7 @@ import VideoPanel from '../components/VideoPanel.jsx'
 import AppLayout from '../layouts/AppLayout.jsx'
 import { api } from '../lib/api.js'
 import { areaLabel, highlightsHands, instructionSteps } from '../lib/enums.js'
+import { plural } from '../lib/format.js'
 import { on } from '../lib/eventBus.js'
 import { useFetch, useForm } from '../lib/hooks.js'
 import PoseStage from '../pose/PoseStage.jsx'
@@ -22,19 +23,54 @@ function ScoreForm({ exercise }) {
   const [seconds, setSeconds] = useState(null)
   const [auto, setAuto] = useState(false)
   const [summary, setSummary] = useState(null)
+  const [savedSession, setSavedSession] = useState(null)
+  const [autoSaving, setAutoSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
   const section = useRef(null)
+  // One guard per workout: remember the clientId we tried to save, and ignore
+  // a late response once the user has started a newer session.
+  const savedKeys = useRef(new Set())
+  const lastKey = useRef(null)
+  const autoSaveToken = useRef(0)
 
-  useEffect(
-    () =>
-      on('session-ended', (detail) => {
-        setSeconds(detail.seconds)
-        setSummary(detail.summary ?? null)
-        setAuto(detail.score != null)
-        if (detail.score != null) setScore(detail.score)
-        setOpen(true)
-      }),
-    [],
-  )
+  useEffect(() => {
+    return on('session-ended', (detail) => {
+      const key = detail.sessionId ?? `${exercise.id}:${detail.seconds}:${Date.now()}`
+      lastKey.current = key
+      autoSaveToken.current += 1
+      setSavedSession(null)
+      setSaveError(null)
+      setSeconds(detail.seconds)
+      setSummary(detail.summary ?? null)
+      setAuto(detail.score != null)
+      setScore(detail.score ?? null)
+      setOpen(true)
+
+      // Only the automatic end condition saves by itself, and only when the
+      // camera produced a score (the API requires one). Manual ends keep the
+      // ordinary form. The clientId makes a retry idempotent.
+      if (detail.reason !== 'complete' || detail.score == null || savedKeys.current.has(key)) return
+      savedKeys.current.add(key)
+      const token = autoSaveToken.current
+      setAutoSaving(true)
+      api
+        .post(`/exercises/${exercise.id}/sessions`, {
+          score: detail.score,
+          durationSeconds: detail.seconds,
+          clientId: key,
+        })
+        .then(({ session }) => {
+          if (autoSaveToken.current === token) setSavedSession(session)
+        })
+        .catch((error) => {
+          savedKeys.current.delete(key)
+          if (autoSaveToken.current === token) setSaveError(error.message)
+        })
+        .finally(() => {
+          if (autoSaveToken.current === token) setAutoSaving(false)
+        })
+    })
+  }, [exercise.id])
 
   useEffect(() => {
     if (open) section.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -47,7 +83,19 @@ function ScoreForm({ exercise }) {
   const submit = (event) => {
     event.preventDefault()
     form.submit(async ({ notes }) => {
-      const { message } = await api.post(`/exercises/${exercise.id}/sessions`, { score, durationSeconds: seconds, notes })
+      // Already auto-saved: only send what the user may have changed.
+      if (savedSession) {
+        const { message } = await api.patch(`/sessions/${savedSession.id}`, { score, notes: notes ?? '' })
+        navigate('/dashboard', { state: { flash: message } })
+        return
+      }
+
+      const { message } = await api.post(`/exercises/${exercise.id}/sessions`, {
+        score,
+        durationSeconds: seconds,
+        notes: notes ?? '',
+        clientId: lastKey.current,
+      })
       navigate('/dashboard', { state: { flash: message } })
     })
   }
@@ -62,6 +110,18 @@ function ScoreForm({ exercise }) {
         </span>
       </p>
 
+      {autoSaving && <p className="mt-2 text-xs text-muted" role="status">Saving this session automatically…</p>}
+      {savedSession && (
+        <p className="mt-2 text-xs text-accent">
+          Saved automatically when the session completed. You can still adjust the score or add notes below.
+        </p>
+      )}
+      {saveError && (
+        <p className="mt-2 text-xs text-red-700" role="alert">
+          Could not save automatically ({saveError}). Use the button below to save it.
+        </p>
+      )}
+
       {/* Tracking results: filled in by the session-ended event */}
       {summary && (
         <div className="mt-6 rounded-xl border border-line bg-stone-50 p-5">
@@ -74,6 +134,14 @@ function ScoreForm({ exercise }) {
                     <span className="font-medium text-ink tabular-nums">{summary.goodFrames}</span> of{' '}
                     <span className="tabular-nums">{summary.judgedFrames}</span> judged frames were within the margin of error.
                   </p>
+                  {summary.totalReps > 1 && (
+                    <p className="mt-1 text-sm text-muted">
+                      Completed <span className="font-medium text-ink tabular-nums">{summary.repsCompleted}</span> of{' '}
+                      <span className="tabular-nums">{summary.totalReps}</span> reps across{' '}
+                      <span className="font-medium text-ink tabular-nums">{summary.setsCompleted}</span> of{' '}
+                      <span className="tabular-nums">{summary.totalSets}</span> sets.
+                    </p>
+                  )}
                 </div>
                 <span className="text-4xl tabular-nums text-accent font-black italic tracking-tighter">
                   {`${Math.round((100 * summary.goodFrames) / summary.judgedFrames)}%`}
@@ -168,7 +236,9 @@ function ScoreForm({ exercise }) {
         <InputError messages={form.errors._form} />
 
         <div className="flex justify-end">
-          <PrimaryButton disabled={form.processing}>Save session</PrimaryButton>
+          <PrimaryButton disabled={form.processing || autoSaving}>
+            {savedSession ? 'Update session' : 'Save session'}
+          </PrimaryButton>
         </div>
       </form>
     </section>
@@ -205,6 +275,10 @@ export default function SessionCreate() {
         <span className="text-xs font-black uppercase tracking-widest text-accent">{areaLabel(exercise.targetArea)}</span>
         <DifficultyBadge difficulty={exercise.difficulty} />
         <span className="text-xs font-bold text-slate-500">· {exercise.durationMinutes} min</span>
+        <span className="text-xs font-bold text-slate-500">
+          · {exercise.sets ?? 1} {plural('set', exercise.sets ?? 1)} × {exercise.repsPerSet ?? 1}{' '}
+          {plural('rep', exercise.repsPerSet ?? 1)}
+        </span>
       </div>
       <h1 className="mt-2 text-3xl sm:text-4xl font-black italic tracking-tighter">{exercise.title}</h1>
     </>
@@ -254,7 +328,14 @@ export default function SessionCreate() {
           </aside>
 
           {/* Right: camera */}
-          <PoseStage key={exercise.id} videoUrl={exercise.videoUrl} targetArea={exercise.targetArea} />
+          <PoseStage
+            key={exercise.id}
+            videoUrl={exercise.videoUrl}
+            targetArea={exercise.targetArea}
+            durationMinutes={exercise.durationMinutes}
+            sets={exercise.sets ?? 1}
+            repsPerSet={exercise.repsPerSet ?? 1}
+          />
         </div>
 
         <ScoreForm exercise={exercise} />

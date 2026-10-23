@@ -193,6 +193,8 @@ async function seedExercises(demo, others) {
     ...curated,
     author: DEMO_OWNED.includes(index) ? demo._id : faker.helpers.arrayElement(others)._id,
     durationMinutes: faker.number.int({ min: 2, max: 10 }),
+    sets: faker.number.int({ min: 1, max: 3 }),
+    repsPerSet: faker.number.int({ min: 1, max: 6 }),
     benefits: faker.helpers.arrayElements(BENEFIT_POOL, 3),
     precautions: faker.helpers.maybe(() => faker.helpers.arrayElement(PRECAUTION_POOL), { probability: 0.6 }) ?? null,
     videoUrl: curated.videoUrl ?? null,

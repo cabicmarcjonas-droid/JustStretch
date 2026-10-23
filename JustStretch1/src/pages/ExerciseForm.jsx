@@ -16,6 +16,8 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
     targetArea: exercise?.targetArea ?? '',
     difficulty: exercise?.difficulty ?? '',
     durationMinutes: exercise?.durationMinutes ?? '',
+    sets: exercise?.sets ?? 1,
+    repsPerSet: exercise?.repsPerSet ?? 1,
     description: exercise?.description ?? '',
     instructions: exercise?.instructions ?? '',
     benefits: Array.from({ length: BENEFIT_INPUTS }, (_, i) => exercise?.benefits?.[i] ?? ''),
@@ -23,6 +25,16 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
     videoUrl: exercise?.videoUrl ?? '',
   })
   const { errors } = form
+
+  // The session is split evenly into timed holds, so this hint shows what each
+  // rep will last. Blank/invalid values simply hide it.
+  const holdSeconds = (() => {
+    const minutes = Number(form.values.durationMinutes)
+    const sets = Number(form.values.sets)
+    const reps = Number(form.values.repsPerSet)
+    if (!minutes || !sets || !reps) return null
+    return Math.max(1, Math.round((minutes * 60) / (sets * reps)))
+  })()
 
   const setBenefit = (index, value) =>
     form.setField(
@@ -104,7 +116,25 @@ export default function ExerciseForm({ exercise, submitLabel, cancelTo, onSubmit
             <TextInput id="duration_minutes" type="number" min="1" max="30" className="mt-1 block w-full" {...form.bind('durationMinutes')} />
             <InputError messages={errors.durationMinutes} className="mt-2" />
           </div>
+
+          <div>
+            <InputLabel htmlFor="sets" value="Sets" />
+            <TextInput id="sets" type="number" min="1" max="20" className="mt-1 block w-full" {...form.bind('sets')} />
+            <InputError messages={errors.sets} className="mt-2" />
+          </div>
+
+          <div>
+            <InputLabel htmlFor="reps_per_set" value="Reps per set" />
+            <TextInput id="reps_per_set" type="number" min="1" max="50" className="mt-1 block w-full" {...form.bind('repsPerSet')} />
+            <InputError messages={errors.repsPerSet} className="mt-2" />
+          </div>
         </div>
+
+        <p className="text-xs text-muted">
+          {holdSeconds
+            ? `The ${form.values.durationMinutes} minute session is split into ${form.values.sets} × ${form.values.repsPerSet} timed holds of about ${holdSeconds}s each. The session ends automatically after the last rep.`
+            : 'The session is split into timed holds. Set the duration, sets and reps per set so the app knows when the last rep ends.'}
+        </p>
 
         <div>
           <InputLabel htmlFor="description" value="Short description" />

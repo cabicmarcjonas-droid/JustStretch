@@ -91,6 +91,12 @@ Four exercises have a reference video and pose file and are scored by the camera
 | Session history | `/sessions` | Logged in |
 | Profile | `/profile` | Logged in |
 
+## Sessions
+
+Each exercise has a duration, a number of sets and reps per set. A rep is a timed hold, so the session is split evenly across `sets × repsPerSet` holds and ends automatically after the last rep. When the camera produced a score, the session is saved automatically at that point; adjusting the score or adding notes afterwards updates the same record (a per-workout `clientId` makes the save idempotent). If there is no camera score, or the user stops early, the existing Save/Update form is used instead. While a set is running, the session page shows `Set x of y · Rep a of b`.
+
+If the webcam disconnects mid-session, tracking and the timer pause, a warning with **Retry camera** and **End session** appears, and the paused time is not counted. Retrying resumes without losing progress; ending early keeps the results collected so far.
+
 ## API
 
 All routes are under `/api`. Errors are JSON; validation failures return `422 { errors: { field: [messages] } }` with the same messages as the Laravel form requests. Protected routes return `401` without a session and `403` when a non-author edits or deletes an exercise or a non-owner deletes a session.

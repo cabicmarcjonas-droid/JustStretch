@@ -3,8 +3,8 @@ import PublicLayout from '../layouts/PublicLayout.jsx'
 
 const GOALS = [
   { n: 3, title: 'Good Health & Well-being', body: 'Encourages regular, safe movement to manage everyday musculoskeletal pain.' },
+  { n: 9, title: 'Industry, Innovation & Infrastructure', body: 'Browser-based pose tracking built on open web standards, so no specialist hardware is needed.' },
   { n: 10, title: 'Reduced Inequalities', body: 'Free guidance that only needs a browser and a webcam, not a clinic visit.' },
-  { n: 17, title: 'Partnerships for the Goals', body: 'Members contribute exercises to a shared, open library that anyone can learn from.' },
 ]
 
 const STACK = [

@@ -3,6 +3,8 @@ import { Exercise } from '../models/Exercise.js'
 import { StretchSession } from '../models/StretchSession.js'
 import { forbidden, isValidId, notFound } from '../middleware/errors.js'
 import { requireAuth } from '../middleware/requireAuth.js'
+import { sessionUpdateSchema } from '../middleware/schemas.js'
+import { validate } from '../middleware/validate.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -34,6 +36,19 @@ router.get('/', async (req, res) => {
     meta: { page, lastPage: Math.max(1, Math.ceil(total / PER_PAGE)), total },
     exercises: exercises.map((e) => ({ id: String(e._id), title: e.title })),
   })
+})
+
+router.patch('/:id', validate(sessionUpdateSchema), async (req, res) => {
+  if (!isValidId(req.params.id)) return notFound(res)
+  const session = await StretchSession.findById(req.params.id)
+  if (!session) return notFound(res)
+  if (String(session.user) !== String(req.user._id)) return forbidden(res)
+
+  if (req.body.score !== undefined && req.body.score !== null) session.score = req.body.score
+  if (Object.hasOwn(req.body, 'notes')) session.notes = req.body.notes
+  await session.save()
+
+  res.json({ session, message: 'Session updated.' })
 })
 
 router.delete('/:id', async (req, res) => {

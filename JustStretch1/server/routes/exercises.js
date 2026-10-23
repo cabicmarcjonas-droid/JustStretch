@@ -54,7 +54,12 @@ router.get('/', async (req, res) => {
 })
 
 router.post('/', validate(exerciseSchema), async (req, res) => {
-  const exercise = await Exercise.create({ ...req.body, author: req.user._id })
+  const exercise = await Exercise.create({
+    ...req.body,
+    sets: req.body.sets ?? 1,
+    repsPerSet: req.body.repsPerSet ?? 1,
+    author: req.user._id,
+  })
   await exercise.populate('author', 'name')
   res.status(201).json({ exercise })
 })
@@ -69,7 +74,11 @@ router.get('/:id', loadExercise, async (req, res) => {
 
 // Authorisation runs before validation, like UpdateExerciseRequest::authorize().
 router.put('/:id', loadExercise, authorOnly, validate(exerciseSchema), async (req, res) => {
-  req.exercise.set(req.body)
+  req.exercise.set({
+    ...req.body,
+    sets: req.body.sets ?? req.exercise.sets,
+    repsPerSet: req.body.repsPerSet ?? req.exercise.repsPerSet,
+  })
   await req.exercise.save()
   res.json({ exercise: req.exercise })
 })
@@ -80,14 +89,41 @@ router.delete('/:id', loadExercise, authorOnly, async (req, res) => {
 })
 
 router.post('/:id/sessions', loadExercise, validate(sessionSchema), async (req, res) => {
-  const session = await StretchSession.create({
+  const clientId = req.body.clientId ?? null
+
+  // An automatic save and a manual retry for the same workout share a clientId,
+  // so the second request returns the first row instead of duplicating it.
+  if (clientId) {
+    const existing = await StretchSession.findOne({ user: req.user._id, clientId })
+    if (existing) {
+      return res.status(200).json({
+        session: existing,
+        message: `Session saved for "${req.exercise.title}". Nice work!`,
+      })
+    }
+  }
+
+  const fields = {
     user: req.user._id,
     exercise: req.exercise._id,
     score: req.body.score,
     durationSeconds: req.body.durationSeconds ?? null,
     notes: req.body.notes ?? null,
+    clientId,
     completedAt: new Date(),
-  })
+  }
+
+  let session
+  try {
+    session = await StretchSession.create(fields)
+  } catch (error) {
+    // A concurrent request may have created the row first; return it.
+    if (error?.code === 11000 && clientId) {
+      session = await StretchSession.findOne({ user: req.user._id, clientId })
+    } else {
+      throw error
+    }
+  }
 
   res.status(201).json({
     session,

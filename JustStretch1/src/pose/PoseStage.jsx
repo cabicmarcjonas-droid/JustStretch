@@ -5,13 +5,14 @@ import { initPoseTracker } from './poseTracker.js'
 // Camera panel of the session page. Same markup as sessions/create.blade.php.
 // The tracker draws to the canvas and updates the DOM refs below directly, so this
 // component holds no state and never re-renders per frame.
-export default function PoseStage({ videoUrl, targetArea }) {
+export default function PoseStage({ videoUrl, targetArea, durationMinutes, sets = 1, repsPerSet = 1 }) {
   const video = useRef(null)
   const canvas = useRef(null)
   const overlay = useRef(null)
   const startButton = useRef(null)
   const stopButton = useRef(null)
   const timer = useRef(null)
+  const setRep = useRef(null)
   const status = useRef(null)
   const livePanel = useRef(null)
   const liveScore = useRef(null)
@@ -19,6 +20,10 @@ export default function PoseStage({ videoUrl, targetArea }) {
   const liveNote = useRef(null)
   const liveTable = useRef(null)
   const liveRows = useRef(null)
+  const cameraWarning = useRef(null)
+  const cameraWarningText = useRef(null)
+  const retryButton = useRef(null)
+  const endSessionButton = useRef(null)
 
   useEffect(() => {
     // One tracker per mount. In StrictMode React runs this effect, cleans up, and runs it
@@ -31,6 +36,7 @@ export default function PoseStage({ videoUrl, targetArea }) {
         startButton: startButton.current,
         stopButton: stopButton.current,
         timer: timer.current,
+        setRep: setRep.current,
         status: status.current,
         livePanel: livePanel.current,
         liveScore: liveScore.current,
@@ -38,10 +44,14 @@ export default function PoseStage({ videoUrl, targetArea }) {
         liveNote: liveNote.current,
         liveTable: liveTable.current,
         liveRows: liveRows.current,
+        cameraWarning: cameraWarning.current,
+        cameraWarningText: cameraWarningText.current,
+        retryButton: retryButton.current,
+        endSessionButton: endSessionButton.current,
       },
-      { videoUrl, landmarks: areaLandmarks(targetArea), highlightHands: highlightsHands(targetArea) },
+      { videoUrl, landmarks: areaLandmarks(targetArea), highlightHands: highlightsHands(targetArea), durationMinutes, sets, repsPerSet },
     )
-  }, [videoUrl, targetArea])
+  }, [videoUrl, targetArea, durationMinutes, sets, repsPerSet])
 
   return (
     <section className="order-1 lg:order-2 min-w-0">
@@ -63,6 +73,41 @@ export default function PoseStage({ videoUrl, targetArea }) {
           <p className="text-sm">
             Camera is off. Press <strong className="text-white">Start</strong> to begin.
           </p>
+        </div>
+
+        <div
+          ref={cameraWarning}
+          role="alert"
+          aria-live="assertive"
+          className="hidden absolute inset-0 z-10 flex-col items-center justify-center gap-4 px-6 text-center text-white bg-slate-950/90"
+        >
+          <svg className="h-10 w-10 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v3.75m0 3.75h.008v.008H12v-.008zM10.34 3.94l-7.5 13A1.5 1.5 0 004.14 19.5h15.72a1.5 1.5 0 001.3-2.56l-7.5-13a1.5 1.5 0 00-2.6 0z"
+            />
+          </svg>
+          <p ref={cameraWarningText} className="max-w-sm text-sm font-medium">
+            Camera disconnected. Check your webcam and try again.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              ref={retryButton}
+              type="button"
+              className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-slate-900 hover:bg-slate-100 disabled:opacity-60"
+            >
+              Retry camera
+            </button>
+            <button
+              ref={endSessionButton}
+              type="button"
+              className="inline-flex items-center justify-center rounded-xl border border-white/40 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/10"
+            >
+              End session
+            </button>
+          </div>
+          <p className="text-xs text-white/70">Your progress is kept while the camera is paused.</p>
         </div>
       </div>
 
@@ -89,6 +134,10 @@ export default function PoseStage({ videoUrl, targetArea }) {
             00:00
           </span>
         </span>
+        <span
+          ref={setRep}
+          className="hidden items-center rounded-full border border-slate-100 bg-white px-5 py-2 text-sm font-bold tabular-nums shadow-sm"
+        />
       </div>
 
       <p

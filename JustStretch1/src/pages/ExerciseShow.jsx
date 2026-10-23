@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import AppLayout from '../layouts/AppLayout.jsx'
 import { api } from '../lib/api.js'
 import { areaLabel, formatDuration, instructionSteps } from '../lib/enums.js'
-import { formatDate } from '../lib/format.js'
+import { formatDate, plural } from '../lib/format.js'
 import { useFetch } from '../lib/hooks.js'
 import Forbidden from './Forbidden.jsx'
 import NotFound from './NotFound.jsx'
@@ -64,6 +64,10 @@ export default function ExerciseShow() {
             <span className="text-xs font-black uppercase tracking-widest text-accent">{areaLabel(exercise.targetArea)}</span>
             <DifficultyBadge difficulty={exercise.difficulty} />
             <span className="text-xs text-muted">· {exercise.durationMinutes} min</span>
+            <span className="text-xs text-muted">
+              · {exercise.sets ?? 1} {plural('set', exercise.sets ?? 1)} × {exercise.repsPerSet ?? 1}{' '}
+              {plural('rep', exercise.repsPerSet ?? 1)}
+            </span>
           </div>
           <h1 className="mt-2 text-3xl sm:text-4xl font-black italic tracking-tighter">{exercise.title}</h1>
           <p className="mt-1 text-sm text-muted">

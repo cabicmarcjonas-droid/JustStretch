@@ -44,6 +44,8 @@ export const exerciseSchema = z.object({
   targetArea: enumField('target area', BODY_AREA_VALUES),
   difficulty: enumField('difficulty', DIFFICULTY_VALUES),
   durationMinutes: intField('duration', { min: 1, max: 30 }),
+  sets: intField('sets', { min: 1, max: 20, optional: true }),
+  repsPerSet: intField('reps per set', { min: 1, max: 50, optional: true }),
   description: stringField('description', { max: 500 }),
   instructions: stringField('instructions', { max: 2000 }),
   benefits: benefitsField,
@@ -57,6 +59,13 @@ export const exerciseSchema = z.object({
 export const sessionSchema = z.object({
   score: intField('score', { min: 0, max: 100 }),
   durationSeconds: intField('duration seconds', { min: 0, max: 7200, optional: true }),
+  notes: stringField('notes', { max: 500, optional: true }),
+  clientId: stringField('client id', { max: 64, optional: true }),
+})
+
+// Editing a saved session (e.g. adding notes after an automatic save).
+export const sessionUpdateSchema = z.object({
+  score: intField('score', { min: 0, max: 100, optional: true }),
   notes: stringField('notes', { max: 500, optional: true }),
 })
 

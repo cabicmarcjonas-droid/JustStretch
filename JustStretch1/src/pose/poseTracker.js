@@ -3,9 +3,9 @@
  *
  * Runs MediaPipe PoseLandmarker (33 body points) and HandLandmarker (21 points
  * per hand, i.e. every finger joint) entirely in the browser: camera frames and
- * landmarks never leave the device. When the user presses Stop, the elapsed
- * time and results are emitted as a `session-ended` event on the client event
- * bus for the score form.
+ * landmarks never leave the device. When the user presses Stop, or the exercise
+ * duration is reached, the elapsed time and results are emitted once as a
+ * `session-ended` event on the client event bus for the score form.
  *
  * Port of laravel/resources/js/pose-tracker.js. Behaviour is unchanged; the
  * differences are plumbing: elements arrive as refs instead of being looked up
@@ -51,11 +51,12 @@ const LIVE_PANEL_INTERVAL_MS = 250
 
 /**
  * @param {object} els   Element refs: video, canvas, overlay, startButton, stopButton, timer,
- *                       status, livePanel, liveScore, liveFrames, liveNote, liveTable, liveRows.
- * @param {object} options { videoUrl, landmarks, highlightHands }
+ *                       setRep, status, livePanel, liveScore, liveFrames, liveNote, liveTable,
+ *                       liveRows, cameraWarning, cameraWarningText, retryButton, endSessionButton.
+ * @param {object} options { videoUrl, landmarks, highlightHands, durationMinutes, sets, repsPerSet }
  * @returns {() => void} destroy: stops the loop, the camera and the timer, and closes both models.
  */
-export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands = false }) {
+export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands = false, durationMinutes = 0, sets = 1, repsPerSet = 1 }) {
   const {
     video,
     canvas,
@@ -63,6 +64,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     startButton,
     stopButton,
     timer: timerEl,
+    setRep: setRepEl,
     status: statusEl,
     livePanel,
     liveScore: liveScoreEl,
@@ -70,6 +72,10 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     liveNote: liveNoteEl,
     liveTable,
     liveRows: liveRowsEl,
+    cameraWarning,
+    cameraWarningText,
+    retryButton,
+    endSessionButton,
   } = els
 
   const ctx = canvas.getContext('2d')
@@ -90,6 +96,52 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
   let timerId = null
   let startedAt = null
   let lastVideoTime = -1
+  let trackHandlers = []
+  let stallTimer = null
+
+  // Session state. `pausedAt` freezes the clock while the camera is disconnected;
+  // `sessionEnded` makes the end-of-session flow (and its event) fire exactly once.
+  let pausedAt = null
+  let pausedByCamera = false
+  let sessionEnded = false
+  let retrying = false
+  const targetSeconds = Math.max(0, Math.round(Number(durationMinutes) * 60)) || 0
+  // Timed holds: durationMinutes is divided evenly into sets × reps. `repSeconds`
+  // is only used for the progress label; completion is still the full duration.
+  const totalSets = Math.max(1, Math.round(Number(sets) || 1))
+  const totalRepsPerSet = Math.max(1, Math.round(Number(repsPerSet) || 1))
+  const totalReps = totalSets * totalRepsPerSet
+  const repSeconds = targetSeconds > 0 ? targetSeconds / totalReps : 0
+  let sessionKey = null
+  const newSessionKey = () =>
+    typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `s-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const CAMERA_LOST_MESSAGE = 'Camera disconnected. Check your webcam and try again.'
+
+  // How many reps/sets have been completed at `seconds`, clamped to the plan.
+  const progressAt = (seconds) => {
+    const repsDone = repSeconds > 0 ? Math.min(totalReps, Math.floor(seconds / repSeconds)) : 0
+    const finished = repsDone >= totalReps
+    return {
+      repsDone,
+      setsDone: Math.min(totalSets, Math.floor(repsDone / totalRepsPerSet)),
+      set: finished ? totalSets : Math.min(totalSets, Math.floor(repsDone / totalRepsPerSet) + 1),
+      rep: finished ? totalRepsPerSet : (repsDone % totalRepsPerSet) + 1,
+      finished,
+    }
+  }
+
+  const updateProgress = (seconds) => {
+    if (!setRepEl) return
+    const show = totalReps > 1
+    setRepEl.classList.toggle('hidden', !show)
+    setRepEl.classList.toggle('inline-flex', show)
+    if (!show) return
+    const { repsDone, set, rep, finished } = progressAt(seconds)
+    setRepEl.textContent =
+      finished && targetSeconds && seconds >= targetSeconds
+        ? `All ${totalSets} ${totalSets === 1 ? 'set' : 'sets'} complete`
+        : `Set ${set} of ${totalSets} · Rep ${rep} of ${totalRepsPerSet} (${repsDone}/${totalReps})`
+  }
 
   // Blender reference pose for this exercise. Stays null when there is none,
   // in which case the page behaves exactly as before (manual slider only).
@@ -109,7 +161,22 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   }
 
-  const elapsedSeconds = () => (startedAt ? Math.round((performance.now() - startedAt) / 1000) : 0)
+  const elapsedSeconds = () => {
+    if (!startedAt) return 0
+    const end = pausedAt ?? performance.now()
+    return Math.round((end - startedAt) / 1000)
+  }
+
+  const tick = () => {
+    if (!startedAt || pausedByCamera) return
+    const elapsed = elapsedSeconds()
+    if (targetSeconds && elapsed >= targetSeconds) {
+      finish('complete')
+      return
+    }
+    timerEl.textContent = formatElapsed(elapsed)
+    updateProgress(elapsed)
+  }
 
   const setRunning = (running) => {
     startButton.disabled = running || !landmarker
@@ -418,10 +485,111 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     }
   }
 
+  // ---- Camera status, pause and recovery -----------------------------------
+  const showCameraWarning = (visible, message) => {
+    if (!cameraWarning) return
+    cameraWarning.classList.toggle('hidden', !visible)
+    cameraWarning.classList.toggle('flex', visible)
+    if (visible && message && cameraWarningText) cameraWarningText.textContent = message
+  }
+
+  const clearTrackHandlers = () => {
+    for (const { track, type, handler } of trackHandlers) {
+      track.removeEventListener(type, handler)
+    }
+    trackHandlers = []
+  }
+
   const stopTracks = () => {
+    clearTrackHandlers()
+    clearTimeout(stallTimer)
+    stallTimer = null
     stream?.getTracks().forEach((track) => track.stop())
     stream = null
     video.srcObject = null
+  }
+
+  const pauseForCamera = () => {
+    if (startedAt == null || sessionEnded || pausedByCamera) return
+    pausedByCamera = true
+    pausedAt = performance.now()
+    cancelAnimationFrame(frameId)
+    clearInterval(timerId)
+    frameId = null
+    timerId = null
+    clearTimeout(stallTimer)
+    stallTimer = null
+    showCameraWarning(true, CAMERA_LOST_MESSAGE)
+    setStatus('Camera disconnected. Session paused.', 'error')
+  }
+
+  const resumeFromCamera = async () => {
+    if (!pausedByCamera || destroyed || startedAt == null) return
+    const track = stream?.getVideoTracks()[0]
+    if (!track || track.readyState === 'ended') return
+
+    try {
+      await video.play()
+    } catch {
+      // The track is back but the element still cannot play; leave the warning up
+      // so Retry or End session remains available.
+      return
+    }
+    if (destroyed || !pausedByCamera) return
+
+    if (pausedAt != null) {
+      startedAt += performance.now() - pausedAt
+      pausedAt = null
+    }
+    pausedByCamera = false
+    lastVideoTime = -1
+    showCameraWarning(false)
+    timerEl.textContent = formatElapsed(elapsedSeconds())
+    updateProgress(elapsedSeconds())
+    timerId = setInterval(tick, 250)
+    setRunning(true)
+    setStatus('Camera reconnected. Session resumed.', 'ok')
+    renderFrame()
+  }
+
+  const handleCameraLost = (reason) => {
+    if (destroyed || sessionEnded || startedAt == null) return
+    // `mute` can fire while a retry is already replacing the stream.
+    if (pausedByCamera) return
+    if (reason === 'stalled') {
+      showCameraWarning(true, 'Camera stopped responding. Check your webcam and press Retry.')
+      setStatus('Camera stopped responding. Session paused.', 'error')
+      pausedByCamera = true
+      pausedAt = performance.now()
+      cancelAnimationFrame(frameId)
+      clearInterval(timerId)
+      frameId = null
+      timerId = null
+      return
+    }
+    pauseForCamera()
+  }
+
+  const attachStream = (acquired) => {
+    clearTrackHandlers()
+    stream = acquired
+    video.srcObject = acquired
+
+    for (const track of acquired.getVideoTracks()) {
+      const onEnded = () => handleCameraLost('ended')
+      const onMute = () => handleCameraLost('mute')
+      const onUnmute = () => {
+        if (pausedByCamera) resumeFromCamera()
+      }
+      track.addEventListener('ended', onEnded)
+      track.addEventListener('mute', onMute)
+      track.addEventListener('unmute', onUnmute)
+      trackHandlers.push(
+        { track, type: 'ended', handler: onEnded },
+        { track, type: 'mute', handler: onMute },
+        { track, type: 'unmute', handler: onUnmute },
+      )
+    }
   }
 
   // Ends the loop and the timer, and releases the camera.
@@ -431,6 +599,110 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     frameId = null
     timerId = null
     stopTracks()
+  }
+
+  const finish = (reason = 'manual') => {
+    if (sessionEnded || startedAt == null) return
+    sessionEnded = true
+
+    // Do not count the disconnected period in the saved duration.
+    if (pausedAt != null) {
+      startedAt += performance.now() - pausedAt
+      pausedAt = null
+    }
+    pausedByCamera = false
+    showCameraWarning(false)
+    halt()
+
+    const seconds = elapsedSeconds()
+    startedAt = null
+
+    timerEl.textContent = formatElapsed(seconds)
+    updateProgress(seconds)
+    setRunning(false)
+    startButton.textContent = 'Restart'
+    if (reason === 'complete') {
+      setStatus('Session complete. Rate your form below to save it.', 'ok')
+    } else if (reason === 'camera-lost') {
+      setStatus('Camera disconnected. Session ended; your results so far are below.', 'error')
+    } else {
+      setStatus('Session stopped. Rate your form below to save it.')
+    }
+
+    // Suggested score (0-100) from the pose comparison. null when this exercise has no
+    // reference or too few frames were judged (e.g. Start then Stop right away).
+    const summary = scorer.summary()
+    const { score, judgedFrames } = summary
+    const suggested = reference && judgedFrames >= MIN_JUDGED_FRAMES ? score : null
+
+    // Everything the results card needs. `joints` only lists joints that were judged at least once.
+    const progress = progressAt(seconds)
+    const detail = {
+      sessionId: sessionKey,
+      seconds,
+      reason,
+      score: suggested,
+      summary: {
+        hasReference: Boolean(reference),
+        camera: reference?.camera ?? null,
+        minJudgedFrames: MIN_JUDGED_FRAMES,
+        judgedFrames: summary.judgedFrames,
+        goodFrames: summary.goodFrames,
+        skippedFrames: summary.skippedFrames,
+        totalSets,
+        repsPerSet: totalRepsPerSet,
+        totalReps,
+        setsCompleted: progress.setsDone,
+        repsCompleted: progress.repsDone,
+        joints: reference
+          ? reference.targetJoints
+              .filter((name) => name in summary.meanErrorDeg)
+              .map((name) => ({
+                name,
+                meanErrorDeg: summary.meanErrorDeg[name],
+                inRangePct: summary.inRangePct[name],
+              }))
+          : [],
+      },
+    }
+
+    // `session-ended` drives the existing results form. `session-complete` is the
+    // paper's name for the automatic end condition; it fires only on `complete`
+    // and carries the same payload, so either name can be subscribed to.
+    emit('session-ended', detail)
+    if (reason === 'complete') emit('session-complete', detail)
+  }
+
+  const retryCamera = async () => {
+    if (retrying || destroyed) return
+    retrying = true
+    if (retryButton) retryButton.disabled = true
+    showCameraWarning(true, 'Requesting camera…')
+
+    try {
+      stopTracks()
+      const acquired = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+        audio: false,
+      })
+
+      if (destroyed || sessionEnded) {
+        acquired.getTracks().forEach((track) => track.stop())
+        return
+      }
+
+      attachStream(acquired)
+      await video.play()
+      if (destroyed || sessionEnded) return
+      await resumeFromCamera()
+    } catch (error) {
+      if (destroyed) return
+      console.error(error)
+      showCameraWarning(true, cameraErrorMessage(error))
+    } finally {
+      retrying = false
+      if (retryButton) retryButton.disabled = false
+    }
   }
 
   // 2. Camera only starts when the user asks for it.
@@ -467,8 +739,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
       return
     }
 
-    stream = acquired
-    video.srcObject = stream
+    attachStream(acquired)
     try {
       await video.play()
     } catch (error) {
@@ -487,63 +758,55 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     setStatus('Camera ready.', 'ok')
     lastVideoTime = -1
     startedAt = performance.now()
+    pausedAt = null
+    pausedByCamera = false
+    sessionEnded = false
+    sessionKey = newSessionKey()
+    showCameraWarning(false)
     scorer = new SessionScorer()
     latest = null
     smoothed = {}
     resetLivePanel()
     timerEl.textContent = formatElapsed(0)
-    timerId = setInterval(() => {
-      timerEl.textContent = formatElapsed(elapsedSeconds())
-    }, 250)
+    updateProgress(0)
+    timerId = setInterval(tick, 250)
 
     setRunning(true)
     renderFrame()
   }
 
   // 6. Stop: end the loop, release the camera, hand the duration to the score form.
-  const stop = () => {
-    halt()
+  const stop = () => finish('manual')
 
-    const seconds = elapsedSeconds()
-    startedAt = null
-
-    timerEl.textContent = formatElapsed(seconds)
-    setRunning(false)
-    startButton.textContent = 'Restart'
-    setStatus('Session stopped. Rate your form below to save it.')
-
-    // Suggested score (0-100) from the pose comparison. null when this exercise has no
-    // reference or too few frames were judged (e.g. Start then Stop right away).
-    const summary = scorer.summary()
-    const { score, judgedFrames } = summary
-    const suggested = reference && judgedFrames >= MIN_JUDGED_FRAMES ? score : null
-
-    // Everything the results card needs. `joints` only lists joints that were judged at least once.
-    emit('session-ended', {
-      seconds,
-      score: suggested,
-      summary: {
-        hasReference: Boolean(reference),
-        camera: reference?.camera ?? null,
-        minJudgedFrames: MIN_JUDGED_FRAMES,
-        judgedFrames: summary.judgedFrames,
-        goodFrames: summary.goodFrames,
-        skippedFrames: summary.skippedFrames,
-        joints: reference
-          ? reference.targetJoints
-              .filter((name) => name in summary.meanErrorDeg)
-              .map((name) => ({
-                name,
-                meanErrorDeg: summary.meanErrorDeg[name],
-                inRangePct: summary.inRangePct[name],
-              }))
-          : [],
-      },
-    })
+  // Video element failures and long stalls are also signs the camera went away.
+  const onVideoError = () => handleCameraLost('error')
+  const onVideoStalled = () => {
+    if (!startedAt || pausedByCamera || sessionEnded) return
+    clearTimeout(stallTimer)
+    stallTimer = setTimeout(() => {
+      if (!destroyed && startedAt && !pausedByCamera && video.readyState < 2) handleCameraLost('stalled')
+    }, 3000)
   }
+  const onVideoPlaying = () => {
+    clearTimeout(stallTimer)
+    stallTimer = null
+    // A stalled or muted camera can start delivering frames again without a
+    // `unmute` event (e.g. after the browser recovers), so resume here too.
+    const track = stream?.getVideoTracks()[0]
+    if (pausedByCamera && track?.readyState === 'live' && !track.muted) {
+      resumeFromCamera()
+    }
+  }
+
+  const onEndSession = () => finish('camera-lost')
 
   startButton.addEventListener('click', start)
   stopButton.addEventListener('click', stop)
+  retryButton?.addEventListener('click', retryCamera)
+  endSessionButton?.addEventListener('click', onEndSession)
+  video.addEventListener('error', onVideoError)
+  video.addEventListener('stalled', onVideoStalled)
+  video.addEventListener('playing', onVideoPlaying)
 
   // 7. Never leave the camera running after navigating away (tab close / bfcache).
   const onPageHide = () => halt()
@@ -563,7 +826,14 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     destroyed = true
     startButton.removeEventListener('click', start)
     stopButton.removeEventListener('click', stop)
+    retryButton?.removeEventListener('click', retryCamera)
+    endSessionButton?.removeEventListener('click', onEndSession)
+    video.removeEventListener('error', onVideoError)
+    video.removeEventListener('stalled', onVideoStalled)
+    video.removeEventListener('playing', onVideoPlaying)
     window.removeEventListener('pagehide', onPageHide)
+    clearTimeout(stallTimer)
+    stallTimer = null
     halt()
     closeModels()
   }
