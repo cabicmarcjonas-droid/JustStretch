@@ -197,6 +197,17 @@ export function compareToReference(user, ref, elapsedSec, opts = { minVisibility
   return { good: score >= passRatio, score, perJoint, matchedT: best.frame.t };
 }
  
+// Where in the reference the session clock is. The reference video loops on the
+// session page, so the comparison loops with it instead of stopping after one pass
+// (the references are ~30 s, sessions run for minutes). One loop is the reference
+// length plus one frame: its last frame sits one frame before the video restarts.
+export function referenceTime(ref, elapsedSec) {
+  const t = Math.max(0, elapsedSec);
+  const n = ref?.frames?.length ?? 0;
+  const period = n > 1 ? ref.duration * (n / (n - 1)) : ref?.duration ?? 0;
+  return period > 0 ? t % period : t;
+}
+
 // ---------------------------------------------------------- session score ---
  
 // Collects the per-frame results and gives one number at the end.
@@ -261,8 +272,11 @@ export class SessionScorer {
 export class LimbScorer {
   // limbOfJoint maps a joint metric name ("left_shoulder") to a limb id
   // ("leftArm"); joints that belong to no limb are ignored here.
+  // It can be a function or a plain lookup object such as LIMB_BY_JOINT; an object used
+  // to be passed straight in and crashed every judged frame ("limbOfJoint is not a function").
   constructor(limbOfJoint, { passRatio = 0.8 } = {}) {
-    this.limbOfJoint = limbOfJoint;
+    this.limbOfJoint =
+      typeof limbOfJoint === 'function' ? limbOfJoint : (joint) => limbOfJoint?.[joint] ?? null;
     this.passRatio = passRatio;
     this.lastT = null;
     this.limbs = new Map(); // limb id -> { judged, good, seconds }

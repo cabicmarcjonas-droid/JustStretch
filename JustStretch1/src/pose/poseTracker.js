@@ -29,6 +29,7 @@ import {
   jointLandmarkIndex,
   loadReference,
   poseUrlFromVideo,
+  referenceTime,
 } from '../lib/poseComparison.js'
 
 // Must match the exact version in package.json so the JS and wasm agree.
@@ -588,6 +589,15 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     scriptGate = 'open'
   }
 
+  // A bug in scoring or feedback must never stop the skeleton from being drawn: the
+  // frame is logged once per stage and the rest of the frame (and the next one) carries on.
+  const reportedFrameErrors = new Set()
+  const reportFrameError = (stage, error) => {
+    if (reportedFrameErrors.has(stage)) return
+    reportedFrameErrors.add(stage)
+    console.error(`[tracker] ${stage} failed; the overlay keeps drawing.`, error)
+  }
+
   // 3–5. One camera frame: detect, draw the frame, the full skeleton, then the target joints.
   //   captureTime  when the camera captured the frame (performance.now() clock), if the browser says
   //   dropped      camera frames skipped since the last one we processed, or null if unknown
@@ -627,63 +637,73 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     latest = null
     currentAngles = null
     if (reference && pose?.length) {
-      const raw = computeUserAngles(pose, video.videoWidth, video.videoHeight, reference)
-      const angles = {}
-      for (const [name, value] of Object.entries(raw)) {
-        if (value == null) {
-          angles[name] = null
-          delete smoothed[name]
-          continue
+      try {
+        const raw = computeUserAngles(pose, video.videoWidth, video.videoHeight, reference)
+        const angles = {}
+        for (const [name, value] of Object.entries(raw)) {
+          if (value == null) {
+            angles[name] = null
+            delete smoothed[name]
+            continue
+          }
+          smoothed[name] = smoothed[name] == null ? value : smoothed[name] + 0.4 * (value - smoothed[name])
+          angles[name] = smoothed[name]
         }
-        smoothed[name] = smoothed[name] == null ? value : smoothed[name] + 0.4 * (value - smoothed[name])
-        angles[name] = smoothed[name]
+        currentAngles = angles
+        const elapsedSec = (performance.now() - startedAt) / 1000
+        // The reference loops with its video, so long sessions keep being judged.
+        latest = compareToReference(angles, reference, referenceTime(reference, elapsedSec))
+        scorer.add(latest)
+        // The same frame, grouped by limb for the per-limb results. Limbs whose
+        // joints were not comparable in this frame are simply not counted.
+        limbScorer.add(latest, elapsedSec)
+      } catch (error) {
+        latest = null
+        reportFrameError('scoring', error)
       }
-      currentAngles = angles
-      const elapsedSec = (performance.now() - startedAt) / 1000
-      latest = compareToReference(angles, reference, elapsedSec)
-      scorer.add(latest)
-      // The same frame, grouped by limb for the per-limb results. Limbs whose
-      // joints were not comparable in this frame are simply not counted.
-      limbScorer.add(latest, elapsedSec)
     }
     const tProcess = performance.now()
-
-    updateLivePanel(tProcess)
 
     const inFrame = Boolean(pose?.length) && targetsInFrame(pose)
     unseenFrames = inFrame ? 0 : unseenFrames + 1
 
-    if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
-      setStatus(
-        pose?.length
-          ? 'Step back a little so your whole upper body is in frame.'
-          : 'No body detected. Step back so the camera can see you.',
-        'warn',
-      )
-    } else if (runner?.running && scriptLine) {
-      setStatus(scriptLine, 'ok')
-    } else if (latest) {
-      setStatus(
-        latest.good ? 'Good form. Keep it up.' : 'Adjust your form: red joints are off the reference.',
-        latest.good ? 'ok' : 'warn',
-      )
-    } else {
-      setStatus('Tracking. Green joints are the ones this stretch targets.', 'ok')
-    }
+    try {
+      updateLivePanel(tProcess)
 
-    // While a script is running, the "adjust" and "good" cues stay quiet: the reference is
-    // compared by clock time, which the script's own pacing does not follow. "Step back" still plays.
-    const scriptActive = Boolean(runner) && (runner.running || scriptGate !== 'open')
-    coach.update({
-      now: tProcess,
-      inFrame,
-      tracked: Boolean(latest) && !scriptActive,
-      good: Boolean(latest?.good),
-      worstJoint: latest && !latest.good ? worstJointName(latest) : null,
-    })
-    if (runner) {
-      gateScript(tProcess, inFrame)
-      if (scriptGate === 'open') runner.tick({ now: tProcess, inFrame, angles: currentAngles })
+      if (unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
+        setStatus(
+          pose?.length
+            ? 'Step back a little so your whole upper body is in frame.'
+            : 'No body detected. Step back so the camera can see you.',
+          'warn',
+        )
+      } else if (runner?.running && scriptLine) {
+        setStatus(scriptLine, 'ok')
+      } else if (latest) {
+        setStatus(
+          latest.good ? 'Good form. Keep it up.' : 'Adjust your form: red joints are off the reference.',
+          latest.good ? 'ok' : 'warn',
+        )
+      } else {
+        setStatus('Tracking. Green joints are the ones this stretch targets.', 'ok')
+      }
+
+      // While a script is running, the "adjust" and "good" cues stay quiet: the reference is
+      // compared by clock time, which the script's own pacing does not follow. "Step back" still plays.
+      const scriptActive = Boolean(runner) && (runner.running || scriptGate !== 'open')
+      coach.update({
+        now: tProcess,
+        inFrame,
+        tracked: Boolean(latest) && !scriptActive,
+        good: Boolean(latest?.good),
+        worstJoint: latest && !latest.good ? worstJointName(latest) : null,
+      })
+      if (runner) {
+        gateScript(tProcess, inFrame)
+        if (scriptGate === 'open') runner.tick({ now: tProcess, inFrame, angles: currentAngles })
+      }
+    } catch (error) {
+      reportFrameError('feedback', error)
     }
 
     if (pose?.length) {
