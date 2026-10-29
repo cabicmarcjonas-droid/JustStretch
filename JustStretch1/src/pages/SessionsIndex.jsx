@@ -91,7 +91,10 @@ export default function SessionsIndex() {
   const exerciseId = params.get('exercise') ?? ''
   const page = Math.max(1, Number.parseInt(params.get('page'), 10) || 1)
 
-  const { data, error, loading, reload } = useFetch(`/sessions${toQuery({ exercise: exerciseId, page: page > 1 ? page : '' })}`)
+  // keepPrevious: picking an exercise keeps the page (and its filter) on screen while it reloads.
+  const { data, error, loading, refreshing, reload } = useFetch(`/sessions${toQuery({ exercise: exerciseId, page: page > 1 ? page : '' })}`, {
+    keepPrevious: true,
+  })
 
   const remove = async (session) => {
     if (!window.confirm('Remove this session from your history?')) return
@@ -146,7 +149,11 @@ export default function SessionsIndex() {
         )}
 
         {data && (
-          <>
+          <div
+            key={sessions.map((session) => session.id).join(',') || 'none'}
+            className={`space-y-6 animate-swap-in transition-opacity duration-200 ${refreshing ? 'opacity-55 delay-150' : ''}`}
+            aria-busy={refreshing}
+          >
             {data.summary && (
               <>
                 <Summary summary={data.summary} />
@@ -253,7 +260,7 @@ export default function SessionsIndex() {
                 <Pagination meta={data.meta} perPage={PER_PAGE} to={pageLink} noun="sessions" />
               </>
             )}
-          </>
+          </div>
         )}
       </div>
     </AppLayout>

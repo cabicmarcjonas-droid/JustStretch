@@ -178,7 +178,8 @@ export default function ExercisesIndex() {
   const page = Math.max(1, Number.parseInt(params.get('page'), 10) || 1)
   const hasFilters = Object.values(filters).some(Boolean)
 
-  const { data, error, loading } = useFetch(`/exercises${toQuery({ ...filters, page: page > 1 ? page : '' })}`)
+  // keepPrevious: changing a filter updates the list in place rather than blanking the page.
+  const { data, error, loading, refreshing } = useFetch(`/exercises${toQuery({ ...filters, page: page > 1 ? page : '' })}`, { keepPrevious: true })
 
   // Search, area and difficulty live in the URL so filtered views can be bookmarked.
   const apply = (next) => setParams(Object.fromEntries(Object.entries(next).filter(([, value]) => value.trim() !== '')))
@@ -210,7 +211,12 @@ export default function ExercisesIndex() {
         )}
 
         {data && (
-          <>
+          <div
+            // Keyed on what is listed, so the swap-in plays when new results land.
+            key={data.data.map((exercise) => exercise.id).join(',') || 'none'}
+            className={`space-y-4 animate-swap-in transition-opacity duration-200 ${refreshing ? 'opacity-55 delay-150' : ''}`}
+            aria-busy={refreshing}
+          >
             <div className="flex items-center justify-between gap-4">
               <p className={statLabel}>
                 {total} {plural('exercise', total)} {hasFilters ? `${total === 1 ? 'matches' : 'match'} your filters` : 'in the library'}
@@ -248,7 +254,7 @@ export default function ExercisesIndex() {
                 <Pagination meta={data.meta} perPage={PER_PAGE} to={pageLink} noun="exercises" />
               </>
             )}
-          </>
+          </div>
         )}
       </div>
     </AppLayout>

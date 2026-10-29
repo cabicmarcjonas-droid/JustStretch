@@ -234,3 +234,72 @@ export class SessionScorer {
     };
   }
 }
+
+// ------------------------------------------------------------ limb scoring ---
+
+// Per-limb results for one session (Feature: the form score summary can be
+// filtered by limb, so each session records how each limb did).
+//
+// A limb is judged on a frame only when at least one of its joints was actually
+// compared in that frame — i.e. the joint is a target of the exercise (reference
+// range >= 10 deg) and its landmarks were visible enough to measure. A limb that
+// never appears is simply absent from the results, never recorded as 0%.
+//
+// A limb passes a frame when the share of its judged joints inside their margin
+// reaches the same passRatio the whole-body frame uses, so "good form" means the
+// same thing at both levels. The session stores per limb:
+//   score         = % of that limb's judged frames that were good
+//   judgedFrames  = frames in which the limb was judged at all
+//   goodFrames    = judged frames in which the limb passed
+//   secondsInForm = seconds (timestamp-based) the limb spent in good form
+export class LimbScorer {
+  // limbOfJoint maps a joint metric name ("left_shoulder") to a limb id
+  // ("leftArm"); joints that belong to no limb are ignored here.
+  constructor(limbOfJoint, { passRatio = 0.8 } = {}) {
+    this.limbOfJoint = limbOfJoint;
+    this.passRatio = passRatio;
+    this.lastT = null;
+    this.limbs = new Map(); // limb id -> { judged, good, seconds }
+  }
+
+  // `result` is one compareToReference() frame (null frames are skipped by the
+  // caller, like SessionScorer). `elapsedSec` is the session clock at this frame,
+  // used only to credit the time between two judged frames to a limb in form.
+  add(result, elapsedSec) {
+    if (!result) return;
+    const delta = this.lastT == null ? 0 : Math.max(0, elapsedSec - this.lastT);
+    this.lastT = elapsedSec;
+
+    // Group this frame's compared joints by limb.
+    const byLimb = new Map();
+    for (const [joint, r] of Object.entries(result.perJoint)) {
+      const limb = this.limbOfJoint(joint);
+      if (!limb) continue;
+      let entry = byLimb.get(limb);
+      if (!entry) byLimb.set(limb, (entry = { total: 0, passed: 0 }));
+      entry.total += 1;
+      if (r.ok) entry.passed += 1;
+    }
+
+    for (const [limb, { total, passed }] of byLimb) {
+      let state = this.limbs.get(limb);
+      if (!state) this.limbs.set(limb, (state = { judged: 0, good: 0, seconds: 0 }));
+      state.judged += 1;
+      if (passed / total >= this.passRatio) {
+        state.good += 1;
+        state.seconds += delta;
+      }
+    }
+  }
+
+  // Rows in the order the limbs were first seen, so the UI stays stable.
+  summary() {
+    return [...this.limbs.entries()].map(([limb, { judged, good, seconds }]) => ({
+      limb,
+      score: judged ? Math.round((100 * good) / judged) : null,
+      judgedFrames: judged,
+      goodFrames: good,
+      secondsInForm: Math.round(seconds),
+    }));
+  }
+}

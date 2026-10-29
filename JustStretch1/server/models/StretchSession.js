@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import { BODY_AREA_VALUES } from '../shared/enums.js'
+import { LIMB_IDS } from '../shared/limbs.js'
 import { REFERRAL_REASON_VALUES } from '../shared/referral.js'
 import { applyJsonTransform } from './toJSON.js'
 
@@ -21,6 +22,23 @@ const referralSchema = new mongoose.Schema(
     area: { type: String, required: true, enum: BODY_AREA_VALUES },
     therapist: { type: mongoose.Schema.Types.ObjectId, ref: 'Therapist', default: null },
     flaggedAt: { type: Date, required: true },
+  },
+  { _id: false },
+)
+
+// One limb's share of the session (shared/limbs.js groups the tracked joints into
+// limbs). Only limbs whose joints were actually judged are stored, so a limb that
+// was never involved never shows up as 0%. The dashboard's limb filter aggregates
+// these rows frame-weighted: sum(goodFrames) / sum(judgedFrames).
+const limbResultSchema = new mongoose.Schema(
+  {
+    limb: { type: String, required: true, enum: LIMB_IDS, maxlength: 20 },
+    score: { type: Number, required: true, min: 0, max: 100, validate: Number.isInteger },
+    judgedFrames: { type: Number, required: true, min: 0, validate: Number.isInteger },
+    goodFrames: { type: Number, required: true, min: 0, validate: Number.isInteger },
+    // How many seconds this limb spent in good form. Null for backfilled rows
+    // whose session recorded no duration.
+    secondsInForm: { type: Number, min: 0, max: 7200, default: null, validate: (v) => v === null || Number.isInteger(v) },
   },
   { _id: false },
 )
@@ -62,6 +80,9 @@ const stretchSessionSchema = new mongoose.Schema(
     // Tracking results from the camera. Null for self-rated sessions and for
     // sessions saved before these fields existed.
     jointResults: { type: [jointResultSchema], default: [] },
+    // The same frames grouped into limbs (leftArm, rightArm, ...). Empty for
+    // self-rated sessions and for sessions saved before this field existed.
+    limbResults: { type: [limbResultSchema], default: [] },
     judgedFrames: { type: Number, min: 0, default: null },
     framesWithinMargin: { type: Number, min: 0, default: null },
     trackingScore: { type: Number, min: 0, max: 100, default: null, validate: (v) => v === null || Number.isInteger(v) },

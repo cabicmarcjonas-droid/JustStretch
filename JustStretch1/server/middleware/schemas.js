@@ -1,6 +1,7 @@
 // Port of app/Http/Requests/*. Same rules, same messages.
 import { z } from 'zod'
 import { BODY_AREA_VALUES, DIFFICULTY_VALUES } from '../shared/enums.js'
+import { LIMB_IDS } from '../shared/limbs.js'
 import {
   emailField,
   enumField,
@@ -67,6 +68,16 @@ const jointResultSchema = z.object({
   timeInRangePct: intField('time in range percentage', { min: 0, max: 100 }),
 })
 
+// One limb's share of the session (shared/limbs.js groups the joints into limbs).
+// The dashboard's limb filter combines these rows frame-weighted.
+const limbResultSchema = z.object({
+  limb: enumField('limb', LIMB_IDS),
+  score: intField('limb score', { min: 0, max: 100 }),
+  judgedFrames: intField('limb judged frames', { min: 0, max: 100000 }),
+  goodFrames: intField('limb frames within margin', { min: 0, max: 100000 }),
+  secondsInForm: intField('limb seconds in form', { min: 0, max: 7200, optional: true }),
+})
+
 // avg / min / max / p95 of one timing, in milliseconds.
 const timingStats = z
   .object({
@@ -105,6 +116,12 @@ export const sessionSchema = z
       .array(jointResultSchema, { error: 'The joint results field must be an array.' })
       .max(24, { error: 'The joint results field must not have more than 24 items.' })
       .optional(),
+    // Per-limb aggregates from the same frames. Optional: a stretch without a
+    // reference pose (or an old session) has none.
+    limbResults: z
+      .array(limbResultSchema, { error: 'The limb results field must be an array.' })
+      .max(LIMB_IDS.length, { error: `The limb results field must not have more than ${LIMB_IDS.length} items.` })
+      .optional(),
     judgedFrames: intField('judged frames', { min: 0, max: 100000, optional: true }),
     framesWithinMargin: intField('frames within margin', { min: 0, max: 100000, optional: true }),
     trackingScore: intField('tracking score', { min: 0, max: 100, optional: true }),
@@ -122,7 +139,39 @@ export const sessionSchema = z
         message: 'The frames within margin field cannot be greater than the judged frames field.',
       })
     }
+
+    // The same two rules hold per limb, and a limb may appear only once.
+    for (const [index, limbResult] of (data.limbResults ?? []).entries()) {
+      if (limbResult.goodFrames > limbResult.judgedFrames) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['limbResults', index, 'goodFrames'],
+          message: 'The limb frames within margin field cannot be greater than the limb judged frames field.',
+        })
+      }
+    }
+    const limbs = (data.limbResults ?? []).map((limbResult) => limbResult.limb)
+    if (new Set(limbs).size !== limbs.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['limbResults'],
+        message: 'The limb results field contains a duplicate limb.',
+      })
+    }
   })
+
+// The dashboard's limb filter: ?limbs=leftArm,rightLeg. Query strings only carry
+// strings, so the comma-separated value is split into an array first. Unknown ids
+// are rejected with 422, like any other validation failure.
+export const dashboardQuerySchema = z.object({
+  limbs: z.preprocess(
+    (value) => (typeof value === 'string' ? value.split(',').map((id) => id.trim()).filter(Boolean) : value),
+    z
+      .array(enumField('limb', LIMB_IDS), { error: 'The limbs field must be an array.' })
+      .max(LIMB_IDS.length, { error: `The limbs field must not have more than ${LIMB_IDS.length} items.` })
+      .optional(),
+  ),
+})
 
 // Editing a saved session (e.g. adding notes after an automatic save).
 export const sessionUpdateSchema = z.object({

@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import Icon from '../components/Icon.jsx'
+import LimbBreakdown from '../components/LimbBreakdown.jsx'
 import ReferralCard from '../components/ReferralCard.jsx'
 import ScoreBadge from '../components/ScoreBadge.jsx'
 import Thumbnail from '../components/Thumbnail.jsx'
@@ -58,9 +59,11 @@ function JointTable({ joints }) {
   )
 }
 
-// How the camera did: frames judged, frames inside the margin, frames dropped.
+// How the camera did: frames judged, frames within the margin, frames dropped,
+// plus the per-limb breakdown derived from the same frames.
 function TrackingResults({ session }) {
   const joints = session.jointResults ?? []
+  const limbs = session.limbResults ?? []
   const judged = session.judgedFrames ?? null
   const within = session.framesWithinMargin ?? null
   const dropped = session.droppedFrames ?? null
@@ -81,13 +84,19 @@ function TrackingResults({ session }) {
 
       {hasTracking ? (
         joints.length > 0 ? (
-          <JointTable joints={joints} />
+          <>
+            <JointTable joints={joints} />
+            {/* Per-limb bars for this session. Limbs the exercise does not work
+                show as "Not assessed", never as 0%. */}
+            {limbs.length > 0 && <LimbBreakdown results={limbs} heading="Per-limb breakdown" className="border-t border-line px-5 py-4" />}
+          </>
         ) : (
           <p className="px-5 py-4 text-sm text-ink-2">No joint was tracked long enough to report on.</p>
         )
       ) : (
         <p className="px-5 py-4 text-sm leading-relaxed text-ink-2">
-          This session has no camera tracking data. It was scored by hand, so there are no per-joint results to show.
+          This session has no camera tracking data. It was scored by hand, so there are no per-joint results to show. Limb scoring
+          requires camera tracking.
         </p>
       )}
     </section>

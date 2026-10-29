@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import DifficultyBadge from '../components/DifficultyBadge.jsx'
 import { InputError, InputLabel, PrimaryButton } from '../components/forms.jsx'
 import Icon from '../components/Icon.jsx'
+import LimbBreakdown from '../components/LimbBreakdown.jsx'
 import PerfPanel from '../components/PerfPanel.jsx'
 import ReferralCard from '../components/ReferralCard.jsx'
 import { api, apiTimings } from '../lib/api.js'
@@ -218,6 +219,10 @@ function ScoreForm({ exercise }) {
                     </tbody>
                   </table>
                 </div>
+
+                {/* The same frames grouped into limbs (leftArm, rightArm, ...). Limbs the
+                    camera never judged show as "Not assessed", never as 0%. */}
+                <LimbBreakdown results={summary.limbs} heading="Per-limb breakdown" className="mt-4 border-t border-line pt-4" />
               </div>
             ) : (
               <div className="text-sm">
@@ -226,6 +231,13 @@ function ScoreForm({ exercise }) {
                   {!summary.hasReference
                     ? 'This exercise has no reference pose yet, so rate your form yourself.'
                     : `Only ${summary.judgedFrames} frames could be judged (at least ${summary.minJudgedFrames} are needed). Keep your upper body fully in view and try again.`}
+                </p>
+                {/* Limb results come from the same camera frames, so both paths
+                    without them say so explicitly. */}
+                <p className="mt-1 text-ink-2">
+                  {!summary.hasReference
+                    ? 'Limb scoring requires camera tracking, so this session has no per-limb breakdown.'
+                    : 'There was not enough judged data for a per-limb breakdown either.'}
                 </p>
                 {summary.hasReference && summary.camera && (
                   <p className="mt-1 text-ink-2">

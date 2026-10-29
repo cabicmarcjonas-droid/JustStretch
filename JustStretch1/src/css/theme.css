@@ -65,8 +65,48 @@
   }
 }
 
+/* Motion: transform and opacity only, exponential ease-out, content visible by default
+   (every animation starts from a readable state, so nothing hides if it never runs). */
+@theme {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-swap-in: swap-in 320ms var(--ease-out-expo) both;
+  --animate-bar-grow: bar-grow 700ms var(--ease-out-expo) both;
+  --animate-line-draw: line-draw 900ms var(--ease-out-expo) both;
+
+  @keyframes swap-in {
+    from {
+      opacity: 0.35;
+      transform: translateY(6px);
+    }
+  }
+
+  /* No `to`: the bar grows into the scaleX set inline on the element. */
+  @keyframes bar-grow {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  @keyframes line-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
   }
 }

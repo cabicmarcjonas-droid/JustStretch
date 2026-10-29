@@ -33,6 +33,20 @@ export function toSessionMetrics(summary) {
     framesWithinMargin: summary.goodFrames ?? null,
     trackingScore: summary.trackingScore ?? null,
     droppedFrames,
+    // Per-limb aggregates from the same frames (leftArm, rightArm, ...). Only
+    // limbs the camera actually judged are sent, so an uninvolved limb is
+    // absent rather than recorded as 0%.
+    ...(summary.limbs?.length
+      ? {
+          limbResults: summary.limbs.map((limb) => ({
+            limb: limb.limb,
+            score: limb.score,
+            judgedFrames: limb.judgedFrames,
+            goodFrames: limb.goodFrames,
+            secondsInForm: limb.secondsInForm,
+          })),
+        }
+      : {}),
   }
 }
 

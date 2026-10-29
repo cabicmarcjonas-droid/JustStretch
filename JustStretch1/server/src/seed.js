@@ -9,6 +9,7 @@ import { Exercise } from '../models/Exercise.js'
 import { StretchSession } from '../models/StretchSession.js'
 import { Therapist } from '../models/Therapist.js'
 import { User } from '../models/User.js'
+import { limbResultsFromJointResults } from '../shared/limbs.js'
 
 export const DEMO_EMAIL = 'demo@juststretch.test'
 
@@ -128,22 +129,28 @@ export function poseName(videoUrl) {
 }
 
 // Tracking results for one session, the way the camera would have reported them.
-function seedTracking(joints) {
+// `durationSeconds` scales the derived limb rows' secondsInForm.
+function seedTracking(joints, durationSeconds) {
   const judgedFrames = faker.number.int({ min: 180, max: 620 })
   const framesWithinMargin = faker.number.int({ min: Math.round(judgedFrames * 0.45), max: judgedFrames })
   const withinPct = Math.round((100 * framesWithinMargin) / judgedFrames)
 
+  const jointResults = joints.map((joint) => ({
+    joint,
+    avgError: faker.number.float({ min: 1.5, max: 22, fractionDigits: 1 }),
+    timeInRangePct: Math.min(100, Math.max(0, withinPct + faker.number.int({ min: -25, max: 25 }))),
+  }))
+
   return {
-    jointResults: joints.map((joint) => ({
-      joint,
-      avgError: faker.number.float({ min: 1.5, max: 22, fractionDigits: 1 }),
-      timeInRangePct: Math.min(100, Math.max(0, withinPct + faker.number.int({ min: -25, max: 25 }))),
-    })),
+    jointResults,
     judgedFrames,
     framesWithinMargin,
     trackingScore: withinPct,
     droppedFrames: faker.number.int({ min: 0, max: 42 }),
     fatigue: faker.helpers.maybe(() => faker.number.int({ min: 1, max: 5 }), { probability: 0.7 }) ?? null,
+    // Per-limb rows derived from the same synthetic joints, so the demo account's
+    // dashboard limb filter has data to show from the first run.
+    limbResults: limbResultsFromJointResults(jointResults, judgedFrames, durationSeconds),
   }
 }
 
@@ -249,7 +256,10 @@ async function seedSessions(demo, others, exercises) {
     const exercise =
       isDemo && index < pinned.length && tracked.length > 0 ? tracked[index % tracked.length] : faker.helpers.arrayElement(exercises)
     const joints = TRACKED_JOINTS[poseName(exercise.videoUrl)]
-    const tracking = joints ? seedTracking(joints) : {}
+    // The length is drawn first so the tracking results (and their limb rows) can
+    // be scaled to it.
+    const durationSeconds = faker.number.int({ min: 60, max: 600 })
+    const tracking = joints ? seedTracking(joints, durationSeconds) : {}
 
     return {
       user: isDemo ? demo._id : faker.helpers.arrayElement(others)._id,
@@ -259,7 +269,7 @@ async function seedSessions(demo, others, exercises) {
         tracking.trackingScore == null
           ? faker.number.int({ min: 35, max: 98 })
           : Math.min(100, Math.max(0, tracking.trackingScore + faker.number.int({ min: -6, max: 6 }))),
-      durationSeconds: faker.number.int({ min: 60, max: 600 }),
+      durationSeconds,
       notes: faker.helpers.maybe(() => faker.helpers.arrayElement(NOTE_POOL), { probability: 0.4 }) ?? null,
       completedAt: new Date(now - ageMs),
       ...tracking,

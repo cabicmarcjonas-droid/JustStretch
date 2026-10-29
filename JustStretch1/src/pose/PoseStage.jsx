@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from '../components/Icon.jsx'
 import { areaLandmarks, highlightsHands } from '../lib/enums.js'
-import { btn } from '../lib/ui.js'
+import { on } from '../lib/eventBus.js'
+import { btn, statLabel } from '../lib/ui.js'
 import { initPoseTracker } from './poseTracker.js'
 
 const tile = 'relative aspect-video overflow-hidden rounded-lg border border-line bg-ink'
@@ -9,6 +10,20 @@ const tile = 'relative aspect-video overflow-hidden rounded-lg border border-lin
 const stageButton = 'h-10 px-4 text-sm sm:h-11 sm:px-5'
 const tileLabel =
   'absolute left-3 top-3 z-10 rounded-sm bg-ink/80 px-2 py-1 text-[13px] font-medium text-white'
+
+// Session length presets (Feature: timed session). "Recommended" is the exercise's
+// own durationMinutes; the tracker reads the choice through durationRef when Start
+// is pressed, so changing a preset never restarts the models.
+const DURATION_PRESETS = [
+  { value: 'recommended', label: 'Recommended' },
+  { value: 1, label: '1 min' },
+  { value: 3, label: '3 min' },
+  { value: 5, label: '5 min' },
+]
+const durationChip = (active) =>
+  `h-9 rounded-md border px-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+    active ? 'border-accent bg-accent text-white' : 'border-line bg-surface text-ink-2 hover:border-line-strong hover:bg-paper-2'
+  }`
 
 // Two layouts, switched with CSS only (the section's data-layout attribute), so the reference
 // video and the tracker's DOM refs stay mounted and nothing restarts when you switch:
@@ -33,8 +48,8 @@ const segment = (active) =>
 // Camera half of the session page, laid out as a mirror: the reference tile (passed in as
 // `reference`) beside the camera tile on desktop, stacked like a video call on phones.
 // The tracker draws to the canvas and updates the DOM refs below directly, so this
-// component holds no state and never re-renders per frame. `stopButtonRef` lets the page
-// check whether a session is running (the tracker enables Stop only while it is).
+// component holds no per-frame state and never re-renders per frame. `stopButtonRef` lets
+// the page check whether a session is running (the tracker enables Stop only while it is).
 export default function PoseStage({
   videoUrl,
   targetArea,
@@ -55,14 +70,34 @@ export default function PoseStage({
     }
   }
 
+  // The chosen session length. State drives the chips; the ref carries the value to
+  // the tracker without re-initialising it (the tracker reads it at each Start).
+  const [durationChoice, setDurationChoice] = useState('recommended')
+  const durationRef = useRef(durationMinutes)
+  useEffect(() => {
+    durationRef.current = durationChoice === 'recommended' ? durationMinutes : Number(durationChoice)
+  }, [durationChoice, durationMinutes])
+
+  // The tracker emits `session-running` on the event bus; the presets lock while a
+  // session (or its countdown) is live, and the choice applies from the next Start.
+  const [running, setRunning] = useState(false)
+  useEffect(() => on('session-running', (isRunning) => setRunning(Boolean(isRunning))), [])
+
   const video = useRef(null)
   const canvas = useRef(null)
   const overlay = useRef(null)
   const startButton = useRef(null)
   const ownStopButton = useRef(null)
+  const pauseButton = useRef(null)
   const soundButton = useRef(null)
   const stopButton = stopButtonRef ?? ownStopButton
   const timer = useRef(null)
+  const timeLeftWrap = useRef(null)
+  const timeLeft = useRef(null)
+  const progressTrack = useRef(null)
+  const progressFill = useRef(null)
+  const countdown = useRef(null)
+  const countdownNumber = useRef(null)
   const setRep = useRef(null)
   const status = useRef(null)
   const livePanel = useRef(null)
@@ -86,8 +121,15 @@ export default function PoseStage({
         overlay: overlay.current,
         startButton: startButton.current,
         stopButton: stopButton.current,
+        pauseButton: pauseButton.current,
         soundButton: soundButton.current,
         timer: timer.current,
+        timeLeftWrap: timeLeftWrap.current,
+        timeLeft: timeLeft.current,
+        progressTrack: progressTrack.current,
+        progressFill: progressFill.current,
+        countdown: countdown.current,
+        countdownNumber: countdownNumber.current,
         setRep: setRep.current,
         status: status.current,
         livePanel: livePanel.current,
@@ -101,7 +143,15 @@ export default function PoseStage({
         retryButton: retryButton.current,
         endSessionButton: endSessionButton.current,
       },
-      { videoUrl, landmarks: areaLandmarks(targetArea), highlightHands: highlightsHands(targetArea), durationMinutes, sets, repsPerSet },
+      {
+        videoUrl,
+        landmarks: areaLandmarks(targetArea),
+        highlightHands: highlightsHands(targetArea),
+        durationMinutes,
+        sets,
+        repsPerSet,
+        durationRef,
+      },
     )
     // stopButton is a ref object and never changes identity for this mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,11 +199,24 @@ export default function PoseStage({
             </p>
           </div>
 
+          {/* 3-2-1 before the session starts. The tracker shows the live camera behind
+              it and counts the steps down; the clock and judging begin at "Go". */}
+          <div
+            ref={countdown}
+            aria-live="assertive"
+            className="absolute inset-0 z-10 hidden flex-col items-center justify-center gap-3 bg-ink/80 text-center text-white"
+          >
+            <p className="text-sm font-medium text-white/80">Get into position…</p>
+            <p ref={countdownNumber} className="font-mono text-7xl font-semibold tabular-nums">
+              3
+            </p>
+          </div>
+
           <div
             ref={cameraWarning}
             role="alert"
             aria-live="assertive"
-            className="absolute inset-0 z-10 hidden flex-col items-center justify-center gap-4 bg-ink/90 px-6 text-center text-white"
+            className="absolute inset-0 z-20 hidden flex-col items-center justify-center gap-4 bg-ink/90 px-6 text-center text-white"
           >
             <svg className="h-10 w-10 text-caution-bright" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
               <path
@@ -188,6 +251,26 @@ export default function PoseStage({
 
       <div className="col-span-full min-w-0 empty:hidden">{children}</div>
 
+      {/* Session length. Locked while a session runs; the tracker reads the choice
+          when Start is pressed, so a change always applies to the next session. */}
+      <div className="col-span-full flex flex-wrap items-center gap-2">
+        <span className={statLabel}>Session length</span>
+        <div role="group" aria-label="Session length" className="flex flex-wrap gap-2">
+          {DURATION_PRESETS.map((preset) => (
+            <button
+              key={String(preset.value)}
+              type="button"
+              aria-pressed={durationChoice === preset.value}
+              disabled={running}
+              onClick={() => setDurationChoice(preset.value)}
+              className={durationChip(durationChoice === preset.value)}
+            >
+              {preset.value === 'recommended' ? `Recommended (${durationMinutes} min)` : preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="col-span-full flex flex-wrap items-center gap-2.5 rounded-lg border border-line bg-surface p-3">
         {/* Text-only buttons: the tracker rewrites Start's label to "Restart". */}
         <button ref={startButton} type="button" disabled className={`${btn.primary} ${stageButton} sm:min-w-28`}>
@@ -195,6 +278,11 @@ export default function PoseStage({
         </button>
         <button ref={stopButton} type="button" disabled className={`${btn.secondary} ${stageButton}`}>
           End session
+        </button>
+        {/* Pause holds the clock AND the frame loop, so paused time affects neither the
+            duration nor any score. The tracker flips the label to "Resume". */}
+        <button ref={pauseButton} type="button" disabled aria-pressed="false" className={`${btn.secondary} ${stageButton}`}>
+          Pause
         </button>
         {/* Spoken cues. The tracker sets the label ("Sound on" / "Sound off") and hides this
             button when the browser has no speech synthesis. */}
@@ -220,6 +308,17 @@ export default function PoseStage({
           ref={setRep}
           className="hidden h-10 items-center rounded-md border border-line bg-surface px-3.5 font-mono text-sm font-medium tabular-nums"
         />
+        {/* Large countdown of the total time remaining, next to the set/rep label. */}
+        <span ref={timeLeftWrap} className="hidden h-10 items-center gap-2 rounded-md bg-ink px-3.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-white/70">Left</span>
+          <span ref={timeLeft} className="font-mono text-lg font-medium tabular-nums text-white">
+            00:00
+          </span>
+        </span>
+        {/* Progress bar for the whole session; the tracker sets the fill width. */}
+        <div ref={progressTrack} className="order-last hidden h-1.5 w-full overflow-hidden rounded-sm bg-paper-2" aria-hidden="true">
+          <div ref={progressFill} className="h-full bg-accent" style={{ width: '0%' }} />
+        </div>
       </div>
 
       {/* Live results: filled in by poseTracker.js while a session is running. It sits below the

@@ -1,7 +1,10 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import DifficultyBadge from '../components/DifficultyBadge.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import Icon from '../components/Icon.jsx'
+import LimbBreakdown from '../components/LimbBreakdown.jsx'
+import LimbFilter from '../components/LimbFilter.jsx'
 import ScoreBadge from '../components/ScoreBadge.jsx'
 import ScoreChart, { TargetLegend } from '../components/ScoreChart.jsx'
 import Thumbnail from '../components/Thumbnail.jsx'
@@ -9,14 +12,33 @@ import { useAuth } from '../context/AuthContext.jsx'
 import AppLayout from '../layouts/AppLayout.jsx'
 import { areaLabel, formatDuration } from '../lib/enums.js'
 import { firstName, formatDateLong, greeting, plural, timeAgo, weekdayOf } from '../lib/format.js'
-import { useFetch } from '../lib/hooks.js'
+import { LIMB_IDS, limbAreas, limbLabel } from '../lib/limbs.js'
+import { api } from '../lib/api.js'
+import { useCountUp, useFetch } from '../lib/hooks.js'
 import { btn, card, cardHead, pageTitle, sectionTitle, statLabel } from '../lib/ui.js'
 
 const WEEKLY_GOAL_MINUTES = 60
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const { data, error, loading } = useFetch('/dashboard')
+  // The limb selection lives in the URL (?limbs=leftArm,rightLeg), like the
+  // exercise library's filters, so a filtered dashboard can be shared or reopened.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selected = [...new Set((searchParams.get('limbs') ?? '').split(',').filter((id) => LIMB_IDS.includes(id)))]
+  const setLimbs = (next) => {
+    const params = new URLSearchParams(searchParams)
+    if (next.length > 0) params.set('limbs', next.join(','))
+    else params.delete('limbs')
+    setSearchParams(params, { replace: true })
+  }
+
+  // One endpoint for both modes: without ?limbs the response is exactly what the
+  // dashboard always returned; with it the averages, chart and log are rebuilt
+  // from the sessions' per-limb frame counts.
+  const path = selected.length > 0 ? `/dashboard?limbs=${selected.join(',')}` : '/dashboard'
+  // keepPrevious: a limb click re-scores the page in place instead of unmounting it
+  // behind a loading message (which collapsed the page and threw the scroll to the top).
+  const { data, error, loading, refreshing } = useFetch(path, { keepPrevious: true })
   const pick = data?.suggestions?.[0]
 
   const header = (
@@ -53,13 +75,28 @@ export default function Dashboard() {
           Could not load your dashboard: {error.message}
         </p>
       )}
-      {data && <DashboardBody data={data} painAreas={user.painAreas ?? []} />}
+      {data && (
+        <DashboardBody
+          data={data}
+          painAreas={user.painAreas ?? []}
+          selectedLimbs={selected}
+          onLimbsChange={setLimbs}
+          refreshing={refreshing}
+        />
+      )}
     </AppLayout>
   )
 }
 
-function DashboardBody({ data, painAreas }) {
+// While re-scoring, the panels that depend on the limb filter fade back a little. The
+// delay keeps a fast response from flickering; coming back is immediate.
+const dimmed = (refreshing) => `transition-opacity duration-200 ${refreshing ? 'opacity-55 delay-150' : ''}`
+
+function DashboardBody({ data, painAreas, selectedLimbs, onLimbsChange, refreshing }) {
   const { totalSessions, averageScore, previousAverageScore, minutesThisWeek, topArea, topAreaSessions, streak } = data
+  const filtered = (data.limbs ?? []).length > 0
+  // Changes when a new limb selection's data lands, to replay the swap-in.
+  const dataKey = (data.limbs ?? []).join(',') || 'all'
   const recentDays = data.recentDays ?? []
   const scoreHistory = data.scoreHistory ?? []
   const { recentSessions, suggestions } = data
@@ -75,11 +112,15 @@ function DashboardBody({ data, painAreas }) {
         <Adherence streak={streak} days={recentDays} minutes={minutesThisWeek} />
       </section>
 
-      <section className={`${card} grid grid-cols-2 gap-px overflow-hidden bg-line lg:grid-cols-4`} aria-label="Your stats">
-        <Vital label="Total sessions" value={totalSessions} note="All time" />
+      <section
+        className={`${card} grid grid-cols-2 gap-px overflow-hidden bg-line lg:grid-cols-4 ${dimmed(refreshing)}`}
+        aria-label="Your stats"
+        aria-busy={refreshing}
+      >
+        <Vital label="Total sessions" value={<CountUp value={totalSessions} />} note="All time" />
         <Vital
           label="Avg. score (7 days)"
-          value={averageScore ?? '—'}
+          value={averageScore == null ? '—' : <CountUp value={averageScore} />}
           note={
             delta == null ? (
               'Nothing to compare yet'
@@ -91,7 +132,7 @@ function DashboardBody({ data, painAreas }) {
             )
           }
         />
-        <Vital label="Minutes this week" value={minutesThisWeek} note="Since Monday" />
+        <Vital label="Minutes this week" value={<CountUp value={minutesThisWeek} />} note="Since Monday" />
         <Vital
           label="Most practised"
           value={topArea ? areaLabel(topArea) : '—'}
@@ -103,20 +144,28 @@ function DashboardBody({ data, painAreas }) {
       <section className={`${card} overflow-hidden`}>
         <div className={`${cardHead} flex flex-wrap items-center justify-between gap-3`}>
           <h2 className={sectionTitle}>Form score</h2>
-          <TargetLegend />
+          <span className="flex items-center gap-3">
+            <span role="status" className={`text-xs text-muted transition-opacity duration-200 ${refreshing ? 'opacity-100 delay-150' : 'opacity-0'}`}>
+              {refreshing ? 'Updating…' : ''}
+            </span>
+            <TargetLegend />
+          </span>
         </div>
-        <div className="p-5">
-          <ScoreChart points={scoreHistory} />
-          {scoreHistory.length > 1 && (
-            <p className="mt-3 text-sm text-muted">
-              {inRange} of your last {scoreHistory.length} sessions were in the target range.
-            </p>
-          )}
+        <div className="space-y-4 p-5">
+          {/* Feature: limb filter. "All limbs" (empty selection) keeps the original
+              summary; picking limbs re-scores everything from the sessions'
+              per-limb frame counts. */}
+          <LimbFilter selected={selectedLimbs} onChange={onLimbsChange} busy={refreshing} />
+          <div className={dimmed(refreshing)} aria-busy={refreshing}>
+            <div key={dataKey} className="animate-swap-in">
+              {filtered ? <FilteredFormScore data={data} /> : <AllLimbsFormScore scoreHistory={scoreHistory} inRange={inRange} />}
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1fr_360px] [&>*]:min-w-0">
-        <div className={`${card} overflow-hidden`}>
+        <div className={`${card} overflow-hidden ${dimmed(refreshing)}`} aria-busy={refreshing}>
           <div className={`${cardHead} flex items-center justify-between gap-4`}>
             <h2 className={sectionTitle}>Session log</h2>
             {recentSessions.length > 0 && (
@@ -128,13 +177,19 @@ function DashboardBody({ data, painAreas }) {
           {recentSessions.length === 0 ? (
             <EmptyState
               className="m-5"
-              message="No sessions yet"
-              hint="Pick a stretch and start your first guided session."
+              message={filtered ? 'No sessions for these limbs' : 'No sessions yet'}
+              hint={
+                filtered
+                  ? 'Save a camera-tracked session that works the selected limbs.'
+                  : 'Pick a stretch and start your first guided session.'
+              }
               actionTo="/exercises"
               actionLabel="Browse exercises"
             />
           ) : (
-            <SessionLog sessions={recentSessions} />
+            <div key={dataKey} className="animate-swap-in">
+              <SessionLog sessions={recentSessions} limbFiltered={filtered} />
+            </div>
           )}
         </div>
 
@@ -164,7 +219,148 @@ function DashboardBody({ data, painAreas }) {
   )
 }
 
-function SessionLog({ sessions }) {
+// The original form score summary, shown when "All limbs" is active. Untouched
+// behaviour: the last-14-sessions chart of the sessions' own scores.
+function AllLimbsFormScore({ scoreHistory, inRange }) {
+  return (
+    <div>
+      <ScoreChart points={scoreHistory} />
+      {scoreHistory.length > 1 && (
+        <p className="mt-3 text-sm text-muted">
+          {inRange} of your last {scoreHistory.length} sessions were in the target range.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// The limb-filtered form score summary. The headline number and the per-limb bars
+// come from the API's frame-weighted aggregation (sum of good frames over sum of
+// judged frames across the selected limbs), so a limb judged on many frames counts
+// proportionally more than one judged on few.
+function FilteredFormScore({ data }) {
+  const { averageScore, previousAverageScore, limbBreakdown = [], limbSessions, limbSessionsTotal, scoreHistory = [] } = data
+  const delta = averageScore != null && previousAverageScore != null ? averageScore - previousAverageScore : null
+  const inRange = scoreHistory.filter((p) => p.score >= 80).length
+
+  // No tracked session has ever involved these limbs: explain, and suggest
+  // exercises from the library whose target area works them.
+  if (limbSessionsTotal === 0) {
+    return <LimbEmptyState limbs={data.limbs} />
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-mono text-[40px] font-medium leading-none tabular-nums text-accent">
+            {averageScore == null ? '—' : <CountUp value={averageScore} />}
+          </p>
+          <p className="mt-1.5 text-[13px] text-muted">
+            {limbSessions > 0
+              ? `Based on ${limbSessions} ${plural('session', limbSessions)} in the last 7 days`
+              : 'No sessions with these limbs in the last 7 days'}
+          </p>
+        </div>
+        {delta != null && (
+          <p className="text-sm">
+            <span className={delta >= 0 ? 'text-accent' : 'text-caution'}>
+              {delta >= 0 ? '+' : '−'}
+              {Math.abs(delta)} vs last week
+            </span>
+          </p>
+        )}
+      </div>
+
+      <LimbBreakdown
+        results={limbBreakdown}
+        showMissing={false}
+        highlightWeakest
+        heading="Per-limb breakdown"
+        className="border-t border-line pt-4"
+      />
+
+      <div className="border-t border-line pt-4">
+        <ScoreChart points={scoreHistory} />
+        {scoreHistory.length > 1 && (
+          <p className="mt-3 text-sm text-muted">
+            {inRange} of your last {scoreHistory.length} sessions scored 80 or more on these limbs.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Empty state for a limb with no data at all: what happened, and what to do about
+// it. Suggestions come from the library's own area filter, one request per body
+// area the limb works, stopping at the first area that has exercises.
+function LimbEmptyState({ limbs }) {
+  const areas = [...new Set(limbs.flatMap((id) => limbAreas(id)))]
+  const areaKey = areas.join('|')
+  const [suggestion, setSuggestion] = useState(null) // null while looking, {} when nothing found
+
+  useEffect(() => {
+    let cancelled = false
+    const look = async () => {
+      for (const area of areas) {
+        try {
+          const { data } = await api.get(`/exercises?area=${area}&page=1`)
+          if (!cancelled && data.data.length > 0) {
+            setSuggestion({ area, exercises: data.data.slice(0, 3) })
+            return
+          }
+        } catch {
+          // Suggestions are a nice-to-have; the message below stands on its own.
+        }
+      }
+      if (!cancelled) setSuggestion({})
+    }
+    look()
+    return () => {
+      cancelled = true
+    }
+    // The area list only changes when the limb selection does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areaKey])
+
+  const label = limbs.map((id) => limbLabel(id)).join(' and ')
+
+  return (
+    <div>
+      <p className="text-sm font-semibold text-ink">No tracked sessions for this limb yet</p>
+      <p className="mt-1 text-sm text-ink-2">
+        Camera-tracked sessions that work your {label} will score it here. Sessions rated by hand have no limb results.
+      </p>
+      {suggestion?.exercises?.length > 0 && (
+        <div className="mt-4 border-t border-line pt-4">
+          <p className={statLabel}>Try these {areaLabel(suggestion.area)} exercises</p>
+          <ul className="mt-2 divide-y divide-line">
+            {suggestion.exercises.map((exercise) => (
+              <li key={exercise.id}>
+                <Link
+                  to={`/exercises/${exercise.id}/session`}
+                  className="flex items-center gap-3 py-2 transition-colors hover:bg-paper"
+                >
+                  <Thumbnail videoUrl={exercise.videoUrl} className="h-9 w-14 shrink-0 rounded-md" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{exercise.title}</span>
+                    <span className={statLabel}>
+                      {areaLabel(exercise.targetArea)}, {exercise.durationMinutes} min
+                    </span>
+                  </span>
+                  <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-muted" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SessionLog({ sessions, limbFiltered = false }) {
   return (
     <div className="relative overflow-x-auto">
       <table className="w-full text-sm">
@@ -174,7 +370,7 @@ function SessionLog({ sessions }) {
             <th className={`${statLabel} hidden px-3 py-2.5 font-medium sm:table-cell`}>Area</th>
             <th className={`${statLabel} px-3 py-2.5 text-right font-medium`}>Time</th>
             <th className={`${statLabel} hidden px-3 py-2.5 font-medium sm:table-cell`}>When</th>
-            <th className={`${statLabel} px-5 py-2.5 text-right font-medium`}>Score</th>
+            <th className={`${statLabel} px-5 py-2.5 text-right font-medium`}>{limbFiltered ? 'Limb score' : 'Score'}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -193,7 +389,9 @@ function SessionLog({ sessions }) {
               <td className="whitespace-nowrap px-3 py-3 text-right font-mono text-ink-2">{formatDuration(session.durationSeconds)}</td>
               <td className="hidden px-3 py-3 text-ink-2 sm:table-cell">{timeAgo(session.completedAt)}</td>
               <td className="px-5 py-3 text-right">
-                <ScoreBadge score={session.score} />
+                {/* With a limb filter the column shows the session's frame-weighted
+                    score across the selected limbs, not its whole-body score. */}
+                <ScoreBadge score={limbFiltered && session.limbScore != null ? session.limbScore : session.score} />
               </td>
             </tr>
           ))}
@@ -304,6 +502,13 @@ function Adherence({ streak, days, minutes }) {
       </div>
     </div>
   )
+}
+
+// A figure that counts from its previous value to the new one when the data changes,
+// so a re-scored number reads as a change rather than a swap. Text only, no layout work.
+function CountUp({ value }) {
+  const shown = useCountUp(value)
+  return shown
 }
 
 function Vital({ label, value, note, small = false }) {

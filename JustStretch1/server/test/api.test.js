@@ -405,11 +405,18 @@ describe('sessions', () => {
     const saved = await user.post(`/api/exercises/${exercise.id}/sessions`).send({ score: 70, durationSeconds: 60 })
     assert.equal(saved.status, 201)
     assert.deepEqual(saved.body.session.jointResults, [])
+    // Old sessions have no limb rows either — the model fills an empty array.
+    assert.deepEqual(saved.body.session.limbResults, [])
     assert.equal(saved.body.session.judgedFrames, null)
     assert.equal(saved.body.session.framesWithinMargin, null)
     assert.equal(saved.body.session.trackingScore, null)
     assert.equal(saved.body.session.droppedFrames, null)
     assert.equal(saved.body.session.fatigue, null)
+
+    // And the detail endpoint loads such a session without any trouble.
+    const detail = await user.get(`/api/sessions/${saved.body.session.id}`)
+    assert.equal(detail.status, 200)
+    assert.deepEqual(detail.body.session.limbResults, [])
   })
 
   test('only the owner can open a session', async () => {
@@ -423,6 +430,83 @@ describe('sessions', () => {
     assert.equal((await other.get(`/api/sessions/${sessionId}`)).status, 403)
     assert.equal((await owner.get('/api/sessions/not-an-id')).status, 404)
     assert.equal((await owner.get('/api/sessions/507f1f77bcf86cd799439011')).status, 404)
+  })
+
+  test('stores limb results with the session and rejects invalid ones', async () => {
+    const user = await signUp('Limb saver', 'limb-saver@example.com')
+    const { exercise } = (await user.post('/api/exercises').send(exerciseBody({ title: 'Limb stretch' }))).body
+    const url = `/api/exercises/${exercise.id}/sessions`
+
+    const limbResults = [
+      { limb: 'leftArm', score: 78, judgedFrames: 300, goodFrames: 234, secondsInForm: 42 },
+      { limb: 'rightLeg', score: 55, judgedFrames: 180, goodFrames: 99, secondsInForm: 18 },
+    ]
+    const saved = await user.post(url).send({ score: 70, durationSeconds: 95, limbResults })
+    assert.equal(saved.status, 201)
+    assert.deepEqual(saved.body.session.limbResults, limbResults)
+
+    // The detail endpoint carries them too.
+    const detail = await user.get(`/api/sessions/${saved.body.session.id}`)
+    assert.deepEqual(detail.body.session.limbResults, limbResults)
+
+    // Unknown limb id.
+    const badLimb = await user.post(url).send({
+      score: 70,
+      limbResults: [{ limb: 'leftWing', score: 50, judgedFrames: 100, goodFrames: 50 }],
+    })
+    assert.equal(badLimb.status, 422)
+    assert.deepEqual(badLimb.body.errors['limbResults.0.limb'], ['The selected limb is invalid.'])
+
+    // Good frames cannot exceed judged frames.
+    const impossible = await user.post(url).send({
+      score: 70,
+      limbResults: [{ limb: 'leftArm', score: 50, judgedFrames: 100, goodFrames: 120 }],
+    })
+    assert.equal(impossible.status, 422)
+    assert.deepEqual(impossible.body.errors['limbResults.0.goodFrames'], [
+      'The limb frames within margin field cannot be greater than the limb judged frames field.',
+    ])
+
+    // Each limb may appear only once.
+    const duplicate = await user.post(url).send({
+      score: 70,
+      limbResults: [
+        { limb: 'leftArm', score: 50, judgedFrames: 100, goodFrames: 50 },
+        { limb: 'leftArm', score: 60, judgedFrames: 100, goodFrames: 60 },
+      ],
+    })
+    assert.equal(duplicate.status, 422)
+    assert.deepEqual(duplicate.body.errors.limbResults, ['The limb results field contains a duplicate limb.'])
+
+    // Score out of range.
+    const badScore = await user.post(url).send({
+      score: 70,
+      limbResults: [{ limb: 'torso', score: 140, judgedFrames: 100, goodFrames: 50 }],
+    })
+    assert.equal(badScore.status, 422)
+    assert.deepEqual(badScore.body.errors['limbResults.0.score'], ['The limb score field must be between 0 and 100.'])
+  })
+
+  test('idempotent save keeps limb results and the chosen duration', async () => {
+    const owner = await signUp('Limb idem', 'limb-idem@example.com')
+    const { exercise } = (await owner.post('/api/exercises').send(exerciseBody({ title: 'Limb idempotent' }))).body
+
+    const payload = {
+      score: 70,
+      durationSeconds: 180,
+      clientId: 'limb-key-1',
+      limbResults: [{ limb: 'neck', score: 88, judgedFrames: 240, goodFrames: 211, secondsInForm: 55 }],
+    }
+    const first = await owner.post(`/api/exercises/${exercise.id}/sessions`).send(payload)
+    assert.equal(first.status, 201)
+    assert.equal(first.body.session.durationSeconds, 180)
+
+    // The retried automatic save returns the first row; nothing is duplicated.
+    const second = await owner.post(`/api/exercises/${exercise.id}/sessions`).send(payload)
+    assert.equal(second.status, 200)
+    assert.equal(second.body.session.id, first.body.session.id)
+    assert.equal(await StretchSession.countDocuments({ exercise: exercise.id }), 1)
+    assert.deepEqual(second.body.session.limbResults, payload.limbResults)
   })
 
   test('dashboard reports stats and suggestions', async () => {
@@ -466,6 +550,118 @@ describe('sessions', () => {
       assert.equal(new Set(body.suggestions.map((e) => e.id)).size, body.suggestions.length)
     }
     assert.deepEqual([...seen].sort(), ['neck', 'shoulders'])
+  })
+})
+
+describe('limb filter', () => {
+  // Builds sessions with known limb frame counts, so the frame-weighted math can
+  // be checked by hand:
+  //   s1: leftArm 60/100, rightLeg 30/100   (whole-body score 70)
+  //   s2: leftArm 80/100                    (whole-body score 90)
+  //   s3: torso   10/100                    (whole-body score 50)
+  async function seedLimbSessions(email) {
+    const user = await signUp('Limb filter', email)
+    const { exercise } = (await user.post('/api/exercises').send(exerciseBody({ title: 'Filter stretch' }))).body
+    const url = `/api/exercises/${exercise.id}/sessions`
+    const lr = (limb, good, judged) => ({ limb, score: Math.round((100 * good) / judged), judgedFrames: judged, goodFrames: good })
+    await user.post(url).send({ score: 70, durationSeconds: 60, limbResults: [lr('leftArm', 60, 100), lr('rightLeg', 30, 100)] })
+    await user.post(url).send({ score: 90, durationSeconds: 60, limbResults: [lr('leftArm', 80, 100)] })
+    await user.post(url).send({ score: 50, durationSeconds: 60, limbResults: [lr('torso', 10, 100)] })
+    return user
+  }
+
+  test('rejects unknown limb ids with 422', async () => {
+    const user = await seedLimbSessions('limb-filter-1@example.com')
+    const bad = await user.get('/api/dashboard?limbs=leftArm,bogus')
+    assert.equal(bad.status, 422)
+    // The bad id sits at index 1 of the parsed array, so the key is "limbs.1".
+    assert.deepEqual(bad.body.errors['limbs.1'], ['The selected limb is invalid.'])
+
+    // Too many limbs is also invalid.
+    const many = await user.get('/api/dashboard?limbs=leftArm,rightArm,leftLeg,rightLeg,torso,neck,leftArm')
+    assert.equal(many.status, 422)
+  })
+
+  test('guests get 401 on the limb-filtered dashboard', async () => {
+    const guest = await request(app).get('/api/dashboard?limbs=leftArm')
+    assert.equal(guest.status, 401)
+  })
+
+  test('filtered results use the frame-weighted formula', async () => {
+    const user = await seedLimbSessions('limb-filter-2@example.com')
+
+    // One limb: sum(good)/sum(judged) = (60+80)/200 = 70.
+    const one = await user.get('/api/dashboard?limbs=leftArm')
+    assert.equal(one.status, 200)
+    assert.deepEqual(one.body.limbs, ['leftArm'])
+    assert.equal(one.body.averageScore, 70)
+    assert.equal(one.body.limbSessions, 2)
+    assert.equal(one.body.limbSessionsTotal, 2)
+    assert.deepEqual(one.body.limbBreakdown, [
+      { limb: 'leftArm', score: 70, judgedFrames: 200, goodFrames: 140, sessions: 2 },
+    ])
+    // The torso-only session is hidden from the chart and the log. Per-session
+    // limb scores: s1 = 60/100 = 60, s2 = 80/100 = 80.
+    assert.deepEqual(one.body.scoreHistory.map((h) => h.score), [60, 80])
+    assert.equal(one.body.recentSessions.length, 2)
+    assert.deepEqual(
+      one.body.recentSessions.map((s) => s.limbScore).sort(),
+      [60, 80],
+    )
+
+    // Two limbs: (60+30+80)/300 = 56.67 -> 57. Frame-weighted, NOT the average of
+    // percentages: rightLeg's 30% carries the same frame weight as leftArm's 80%,
+    // which is why s1 (45%) drags the combined score below both limb averages.
+    const two = await user.get('/api/dashboard?limbs=leftArm,rightLeg')
+    assert.equal(two.status, 200)
+    assert.equal(two.body.averageScore, 57)
+    assert.equal(two.body.limbSessions, 2)
+    const breakdown = Object.fromEntries(two.body.limbBreakdown.map((row) => [row.limb, row]))
+    assert.deepEqual(breakdown.leftArm, { limb: 'leftArm', score: 70, judgedFrames: 200, goodFrames: 140, sessions: 2 })
+    assert.deepEqual(breakdown.rightLeg, { limb: 'rightLeg', score: 30, judgedFrames: 100, goodFrames: 30, sessions: 1 })
+    assert.equal(breakdown.torso, undefined) // not selected -> not in the breakdown
+    // Per-session selected-limb scores: s1 = (60+30)/200 = 45, s2 = 80/100 = 80.
+    assert.deepEqual(two.body.scoreHistory.map((h) => h.score), [45, 80])
+  })
+
+  test('empty selection matches the original dashboard output', async () => {
+    const user = await seedLimbSessions('limb-filter-3@example.com')
+
+    const plain = await user.get('/api/dashboard')
+    const emptyParam = await user.get('/api/dashboard?limbs=')
+    assert.equal(emptyParam.status, 200)
+
+    // Suggestions are random per request, so compare everything else.
+    for (const key of ['totalSessions', 'averageScore', 'previousAverageScore', 'minutesThisWeek', 'topArea', 'topAreaSessions', 'streak', 'recentDays', 'scoreHistory']) {
+      assert.deepEqual(emptyParam.body[key], plain.body[key], `field: ${key}`)
+    }
+    assert.deepEqual(emptyParam.body.limbs, [])
+    assert.deepEqual(plain.body.limbs, [])
+    assert.equal(emptyParam.body.limbBreakdown, undefined)
+    assert.equal(
+      emptyParam.body.recentSessions.length,
+      plain.body.recentSessions.length,
+    )
+    assert.deepEqual(
+      emptyParam.body.recentSessions.map((s) => s.id),
+      plain.body.recentSessions.map((s) => s.id),
+    )
+    // Unfiltered recent sessions carry no limb scores.
+    assert.equal(plain.body.recentSessions[0].limbScore, undefined)
+    // The unfiltered average is the average of whole-body scores: (70+90+50)/3.
+    assert.equal(plain.body.averageScore, 70)
+  })
+
+  test('a limb with no data returns an empty result, not zeros', async () => {
+    const user = await seedLimbSessions('limb-filter-4@example.com')
+    const { body } = await user.get('/api/dashboard?limbs=neck')
+    assert.equal(body.averageScore, null)
+    assert.equal(body.previousAverageScore, null)
+    assert.equal(body.limbSessions, 0)
+    assert.equal(body.limbSessionsTotal, 0)
+    assert.deepEqual(body.limbBreakdown, [{ limb: 'neck', score: null, judgedFrames: 0, goodFrames: 0, sessions: 0 }])
+    assert.deepEqual(body.scoreHistory, [])
+    assert.deepEqual(body.recentSessions, [])
   })
 })
 

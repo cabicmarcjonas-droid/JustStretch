@@ -64,7 +64,19 @@ export default function ScoreChart({ points, height = 220, className = '' }) {
             </text>
           </g>
         ))}
-        <polyline points={line} fill="none" stroke={ACCENT} strokeWidth="1.8" strokeLinejoin="round" />
+        {/* Keyed on the scores (not the pixels) so it draws itself in again when the
+            data changes, but not on every resize. */}
+        <polyline
+          key={points.map((p) => `${p.completedAt}:${p.score}`).join('|')}
+          points={line}
+          pathLength="1"
+          strokeDasharray="1"
+          fill="none"
+          stroke={ACCENT}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+          className="animate-line-draw"
+        />
         {points.map((p, i) => (
           <rect
             key={i}
