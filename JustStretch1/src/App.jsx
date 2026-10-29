@@ -8,10 +8,12 @@ import ExerciseEdit from './pages/ExerciseEdit.jsx'
 import ExerciseShow from './pages/ExerciseShow.jsx'
 import ExercisesIndex from './pages/ExercisesIndex.jsx'
 import Forbidden from './pages/Forbidden.jsx'
+import ForgotPassword from './pages/ForgotPassword.jsx'
 import LandingPage from './pages/LandingPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import NotFound from './pages/NotFound.jsx'
 import Profile from './pages/Profile.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
 import SessionsIndex from './pages/SessionsIndex.jsx'
 import SessionShow from './pages/SessionShow.jsx'
 
@@ -45,6 +47,8 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/about" element={<About />} />
       <Route path="/403" element={<Forbidden />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route path="/login" element={guestOnly(<LoginPage />)} />
       <Route path="/register" element={guestOnly(<LoginPage initialView="register" />)} />

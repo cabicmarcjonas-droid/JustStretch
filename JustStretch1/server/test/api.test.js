@@ -8,32 +8,50 @@ import { computeStreak } from '../routes/dashboard.js'
 import { Exercise } from '../models/Exercise.js'
 import { StretchSession } from '../models/StretchSession.js'
 import { Therapist } from '../models/Therapist.js'
+import { createMemoryMailer } from '../services/mailer.js'
 import { referralReason } from '../services/referral.js'
 import { REFERRAL_HIGH_FATIGUE, REFERRAL_LOW_SCORE, REFERRAL_RECENT_SESSIONS } from '../shared/referral.js'
 
 let mongod
 let app
+let mailer
 
 before(async () => {
   mongod = await MongoMemoryServer.create()
   const url = mongod.getUri('juststretch-test')
   await mongoose.connect(url)
-  app = createApp({ mongoUrl: url })
+  mailer = createMemoryMailer()
+  app = createApp({ mongoUrl: url, mailer, rateLimits: false })
 })
 
 after(async () => {
   await app.locals.sessionStore.close()
+  await mailer.close()
   await mongoose.disconnect()
   await mongod.stop()
 })
 
-// A logged-in supertest agent (keeps the session cookie).
-async function signUp(name, email) {
+async function register(name, email) {
   const agent = request.agent(app)
   const res = await agent
     .post('/api/auth/register')
     .send({ name, email, password: 'password', passwordConfirmation: 'password' })
   assert.equal(res.status, 201)
+  return { agent, res }
+}
+
+async function verify(agent, email) {
+  const code = mailer.lastCode(email)
+  assert.ok(code, `verification code for ${email}`)
+  const res = await agent.post('/api/auth/verify-email').send({ code })
+  assert.equal(res.status, 200)
+  return res
+}
+
+// A logged-in supertest agent (keeps the session cookie).
+async function signUp(name, email) {
+  const { agent } = await register(name, email)
+  await verify(agent, email.toLowerCase())
   return agent
 }
 
@@ -53,15 +71,21 @@ const exerciseBody = (overrides = {}) => ({
 })
 
 describe('auth', () => {
-  test('register, me, logout, login', async () => {
-    const agent = request.agent(app)
+  test('register, verify, me, logout, login', async () => {
+    const { agent, res: registered } = await register('Ada Lovelace', 'Ada@Example.com')
 
-    const registered = await agent
-      .post('/api/auth/register')
-      .send({ name: 'Ada Lovelace', email: 'Ada@Example.com', password: 'password', passwordConfirmation: 'password' })
-    assert.equal(registered.status, 201)
-    assert.equal(registered.body.user.email, 'ada@example.com')
-    assert.equal(registered.body.user.password, undefined)
+    assert.equal(registered.body.verificationRequired, true)
+    assert.equal(registered.body.source, 'register')
+    assert.equal(registered.body.user, undefined)
+
+    const pending = await agent.get('/api/auth/me')
+    assert.equal(pending.body.user, null)
+    assert.equal(pending.body.verificationRequired, true)
+
+    const verified = await verify(agent, 'ada@example.com')
+    assert.equal(verified.body.user.email, 'ada@example.com')
+    assert.equal(verified.body.user.password, undefined)
+    assert.ok(verified.body.user.emailVerifiedAt)
 
     assert.equal((await agent.get('/api/auth/me')).body.user.name, 'Ada Lovelace')
 
@@ -74,6 +98,7 @@ describe('auth', () => {
 
     const ok = await agent.post('/api/auth/login').send({ email: 'ada@example.com', password: 'password' })
     assert.equal(ok.status, 200)
+    assert.equal(ok.body.user.email, 'ada@example.com')
   })
 
   test('register validation mirrors Breeze', async () => {

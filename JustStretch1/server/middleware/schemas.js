@@ -148,8 +148,32 @@ export const loginSchema = z.object({
 
 export const profileSchema = z.object({
   name: stringField('name', { max: 255 }),
+})
+
+export const emailChangeSchema = z.object({
+  currentPassword: stringField('current password'),
+  email: emailField('email'),
+})
+
+export const verifyEmailSchema = z.object({
+  code: z
+    .string({ error: 'The verification code field is required.' })
+    .regex(/^\d{6}$/, { error: 'The verification code must be 6 digits.' }),
+})
+
+export const forgotPasswordSchema = z.object({
   email: emailField(),
 })
+
+export const resetPasswordSchema = withConfirmation(
+  z.object({
+    token: z
+      .string({ error: 'The reset token field is required.' })
+      .regex(/^[a-f0-9]{64}$/i, { error: 'This password reset link is invalid or has expired.' }),
+    password: newPasswordField(),
+    passwordConfirmation: z.string().nullish(),
+  }),
+)
 
 // The two flexibility tests that are scored from 1 to 5.
 const RANGE_TESTS = ['neck_range', 'shoulder_range']

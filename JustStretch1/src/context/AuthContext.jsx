@@ -6,44 +6,113 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [pendingVerification, setPendingVerification] = useState(null)
   const [ready, setReady] = useState(false)
 
-  // Login survives a refresh because the server session cookie is checked on load.
   useEffect(() => {
     let cancelled = false
     api
       .get('/auth/me')
-      .then(({ user: current }) => !cancelled && setUser(current))
-      .catch(() => !cancelled && setUser(null))
+      .then(({ user: current, ...rest }) => {
+        if (cancelled) return
+        setUser(current ?? null)
+        setPendingVerification(rest.verificationRequired ? rest : null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setUser(null)
+        setPendingVerification(null)
+      })
       .finally(() => !cancelled && setReady(true))
     return () => {
       cancelled = true
     }
   }, [])
 
-  // A 401 from any API call means the session is gone.
-  useEffect(() => on('unauthenticated', () => setUser(null)), [])
+  useEffect(
+    () =>
+      on('unauthenticated', () => {
+        setUser(null)
+        setPendingVerification(null)
+      }),
+    [],
+  )
 
-  const login = useCallback(async (credentials) => {
-    const { user: signedIn } = await api.post('/auth/login', credentials)
-    setUser(signedIn)
-    return signedIn
+  const accept = useCallback((payload) => {
+    if (payload?.user) {
+      setUser(payload.user)
+      setPendingVerification(null)
+      return { user: payload.user }
+    }
+    if (payload?.verificationRequired) {
+      setUser(null)
+      setPendingVerification(payload)
+    }
+    return payload
   }, [])
 
-  const register = useCallback(async (details) => {
-    const { user: created } = await api.post('/auth/register', details)
-    setUser(created)
-    return created
+  const login = useCallback(
+    async (credentials) => {
+      const payload = await api.post('/auth/login', credentials)
+      return accept(payload)
+    },
+    [accept],
+  )
+
+  const register = useCallback(
+    async (details) => {
+      const payload = await api.post('/auth/register', details)
+      return accept(payload)
+    },
+    [accept],
+  )
+
+  const verifyEmail = useCallback(
+    async (code) => {
+      const { user: verified } = await api.post('/auth/verify-email', { code })
+      setUser(verified)
+      setPendingVerification(null)
+      return verified
+    },
+    [],
+  )
+
+  const resendVerification = useCallback(async () => {
+    const result = await api.post('/auth/resend-verification')
+    setPendingVerification((current) => (current ? { ...current, ...result, verificationRequired: true } : current))
+    return result
+  }, [])
+
+  const cancelVerification = useCallback(async () => {
+    await api.post('/auth/cancel-verification').catch(() => {})
+    setPendingVerification(null)
+  }, [])
+
+  const clearAuth = useCallback(() => {
+    setUser(null)
+    setPendingVerification(null)
   }, [])
 
   const logout = useCallback(async () => {
     await api.post('/auth/logout').catch(() => {})
-    setUser(null)
-  }, [])
+    clearAuth()
+  }, [clearAuth])
 
   const value = useMemo(
-    () => ({ user, ready, login, register, logout, setUser }),
-    [user, ready, login, register, logout],
+    () => ({
+      user,
+      ready,
+      pendingVerification,
+      login,
+      register,
+      verifyEmail,
+      resendVerification,
+      cancelVerification,
+      logout,
+      clearAuth,
+      setUser,
+    }),
+    [user, ready, pendingVerification, login, register, verifyEmail, resendVerification, cancelVerification, logout, clearAuth],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
