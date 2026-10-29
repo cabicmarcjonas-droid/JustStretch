@@ -58,6 +58,11 @@ export function loadConfig(env = process.env) {
     appUrl,
     appOrigin,
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
+    // Optional. Without a key the dashboard insight uses its plain template.
+    groq: {
+      apiKey: env.GROQ_API_KEY?.trim() || '',
+      model: env.GROQ_MODEL?.trim() || 'openai/gpt-oss-20b',
+    },
     mail: {
       transport: mailTransport,
       host: env.SMTP_HOST?.trim() || 'smtp.gmail.com',

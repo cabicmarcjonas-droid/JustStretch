@@ -13,12 +13,20 @@ import { noStore } from '../middleware/noStore.js'
 import { createRateLimiters } from '../middleware/rateLimits.js'
 import { sameOrigin } from '../middleware/sameOrigin.js'
 import { createMailer } from '../services/mailer.js'
+import { createInsightWriter } from '../services/insightWriter.js'
 import { loadConfig } from './config.js'
 
-export function createApp({ mongoUrl, config = loadConfig(), mailer = createMailer(config), rateLimits = true } = {}) {
+export function createApp({
+  mongoUrl,
+  config = loadConfig(),
+  mailer = createMailer(config),
+  rateLimits = true,
+  insightWriter = createInsightWriter(config.groq),
+} = {}) {
   const app = express()
   app.locals.config = config
   app.locals.mailer = mailer
+  app.locals.insightWriter = insightWriter
   app.locals.rateLimits = createRateLimiters({ enabled: rateLimits })
 
   app.set('trust proxy', config.trustProxy)

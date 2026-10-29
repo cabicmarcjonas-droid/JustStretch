@@ -13,6 +13,7 @@ import { Therapist } from '../models/Therapist.js'
 import { User } from '../models/User.js'
 import { limbResultsFromJointResults } from '../shared/limbs.js'
 import { UserSession } from '../models/UserSession.js'
+import { Insight } from '../models/Insight.js'
 
 export const DEMO_EMAIL = 'demo@juststretch.test'
 
@@ -295,6 +296,7 @@ export async function seedDatabase() {
     UserSession.deleteMany({}),
     EmailVerificationChallenge.deleteMany({}),
     PasswordResetToken.deleteMany({}),
+    Insight.deleteMany({}),
   ])
   await Promise.all([
     User.init(),

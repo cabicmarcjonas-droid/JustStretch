@@ -58,6 +58,26 @@ Copy the mail settings from `server/.env.example` into `server/.env`:
 
 `APP_URL` is the client origin used in password-reset links (for example `http://localhost:5173`). `TRUST_PROXY` defaults to `1`; set it to `false` if the API is not behind a proxy.
 
+### AI progress summary (optional, Groq)
+
+The dashboard's "Your progress" card writes one or two sentences about your best and weakest body area and your lowest-scoring exercise. The server works out every number and the therapist referral itself; Groq only words the sentence. Without a key the card still works and uses a plain template sentence.
+
+To turn the AI wording on, each groupmate uses their own free key:
+
+1. Sign in at [console.groq.com](https://console.groq.com) (Google or GitHub login works).
+2. Go to **API Keys** ([console.groq.com/keys](https://console.groq.com/keys)), click **Create API Key**, name it (for example `juststretch-local`) and copy it. It starts with `gsk_` and is only shown once.
+3. Add these two lines to **your own** `server/.env` (not `.env.example`):
+   ```
+   GROQ_API_KEY=gsk_your_key_here
+   GROQ_MODEL=openai/gpt-oss-20b
+   ```
+4. Restart `npm run dev`. The API log should say `[api] dashboard insight: groq (openai/gpt-oss-20b)`, and the card shows "Written by AI from your scores".
+
+If the card still shows the template sentence, check the API log for `[insight] Groq request failed …`. A `404 (model_not_found)` means your key cannot use that model: list the ones it can with
+`curl -s https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY" | grep -o '"id":"[^"]*"'` and set `GROQ_MODEL` to one of them. A `401` means the key is wrong or revoked.
+
+Never commit a real key. `server/.env` is git-ignored, and GitHub's push protection rejects a push that contains a Groq key.
+
 ### Windows notes for groupmates
 
 - Use PowerShell and run commands one per line (PowerShell 5.1 has no `&&`).

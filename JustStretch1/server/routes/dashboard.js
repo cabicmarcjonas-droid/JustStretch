@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/requireAuth.js'
 import { dashboardQuerySchema } from '../middleware/schemas.js'
 import { formatIssues, validationError } from '../middleware/validate.js'
 import { LIMBS } from '../shared/limbs.js'
+import { getInsight } from '../services/insight.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -290,6 +291,12 @@ router.get('/', async (req, res) => {
         }
       : {}),
   })
+})
+
+// The narrative recommendation at the top of the dashboard. Separate from GET / so a
+// slow Groq answer never holds up the rest of the page.
+router.get('/insight', async (req, res) => {
+  res.json(await getInsight(req.user._id, req.app.locals.insightWriter))
 })
 
 export default router

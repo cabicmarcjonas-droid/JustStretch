@@ -2,6 +2,7 @@
 // routes call these helpers instead of deleting documents directly.
 import { EmailVerificationChallenge } from './EmailVerificationChallenge.js'
 import { Exercise } from './Exercise.js'
+import { Insight } from './Insight.js'
 import { PasswordResetToken } from './PasswordResetToken.js'
 import { StretchSession } from './StretchSession.js'
 import { User } from './User.js'
@@ -23,6 +24,7 @@ export async function deleteUser(userId) {
     EmailVerificationChallenge.deleteMany({ user: userId }),
     PasswordResetToken.deleteMany({ user: userId }),
     UserSession.deleteMany({ user: userId }),
+    Insight.deleteMany({ user: userId }),
   ])
   await User.deleteOne({ _id: userId })
 }

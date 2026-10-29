@@ -22,6 +22,7 @@ if ((await Therapist.estimatedDocumentCount()) === 0) {
 const mailer = createMailer(config)
 const app = createApp({ mongoUrl: getMongoUrl(), config, mailer })
 console.log(`[api] mail transport: ${config.mail.transport}`)
+console.log(`[api] dashboard insight: ${config.groq.apiKey ? `groq (${config.groq.model})` : 'template (no GROQ_API_KEY)'}`)
 
 const server = app.listen(port, () => {
   console.log(`[api] listening on http://localhost:${port}`)

@@ -7,6 +7,7 @@ import LimbBreakdown from '../components/LimbBreakdown.jsx'
 import LimbFilter from '../components/LimbFilter.jsx'
 import ScoreBadge from '../components/ScoreBadge.jsx'
 import ScoreChart, { TargetLegend } from '../components/ScoreChart.jsx'
+import ReferralCard from '../components/ReferralCard.jsx'
 import Thumbnail from '../components/Thumbnail.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import AppLayout from '../layouts/AppLayout.jsx'
@@ -107,6 +108,8 @@ function DashboardBody({ data, painAreas, selectedLimbs, onLimbsChange, refreshi
 
   return (
     <div className="space-y-6 pb-10">
+      <Insight pick={pick} />
+
       <section className="grid gap-6 lg:grid-cols-[1fr_360px] [&>*]:min-w-0">
         {pick ? <SuggestedNext exercise={pick} matchesPainArea={painAreas.includes(pick.targetArea)} /> : <EmptyLibrary />}
         <Adherence streak={streak} days={recentDays} minutes={minutesThisWeek} />
@@ -441,6 +444,82 @@ function SuggestedNext({ exercise, matchesPainArea }) {
         </div>
       </div>
     </article>
+  )
+}
+
+// Narrative recommendation (GET /api/dashboard/insight). The server picks the best and
+// worst area, the lowest-scoring exercise and any referral; Groq only words the summary.
+// "Up next" is not part of the cached text because Suggested next can change on every
+// visit, so it is always rendered from the card's own exercise. Nothing shows until the
+// member has a session, and a failed request just hides the card.
+function Insight({ pick }) {
+  const { data, loading } = useFetch('/dashboard/insight')
+
+  if (loading) {
+    return (
+      <section className={`${card} p-5 sm:p-6`} aria-busy="true">
+        <p className={statLabel}>Your progress</p>
+        <p className="mt-2 text-sm text-muted" role="status">
+          Summarising your recent sessions…
+        </p>
+      </section>
+    )
+  }
+  if (!data?.narrative) return null
+
+  const { narrative, source, bestArea, worstArea, lowestExercise, referral } = data
+  const sameArea = bestArea.area === worstArea.area
+
+  return (
+    <div className="space-y-4">
+      <section className={`${card} p-5 sm:p-6`} aria-labelledby="insight-title">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="insight-title" className={statLabel}>
+            Your progress
+          </h2>
+          {source === 'groq' && <p className="text-xs text-muted">Written by AI from your scores</p>}
+        </div>
+        <p className="mt-2 max-w-3xl text-[17px] leading-relaxed text-ink">{narrative}</p>
+
+        <dl className="mt-4 grid gap-px overflow-hidden rounded-md border border-line bg-line text-sm sm:grid-cols-3">
+          <div className="bg-surface px-4 py-3">
+            <dt className={statLabel}>{sameArea ? 'Practised so far' : 'Strongest area'}</dt>
+            <dd className="mt-0.5 font-medium">
+              {bestArea.label} <span className="font-mono text-muted">{bestArea.score}</span>
+            </dd>
+          </div>
+          {!sameArea && (
+            <div className="bg-surface px-4 py-3">
+              <dt className={statLabel}>Needs work</dt>
+              <dd className="mt-0.5 font-medium">
+                {worstArea.label} <span className="font-mono text-muted">{worstArea.score}</span>
+              </dd>
+            </div>
+          )}
+          <div className={`bg-surface px-4 py-3 ${sameArea ? 'sm:col-span-2' : ''}`}>
+            <dt className={statLabel}>Lowest-scoring exercise</dt>
+            <dd className="mt-0.5 truncate font-medium">
+              <Link to={`/exercises/${lowestExercise.id}`} className="text-accent hover:underline">
+                {lowestExercise.title}
+              </Link>{' '}
+              <span className="font-mono text-muted">{lowestExercise.score}</span>
+            </dd>
+          </div>
+        </dl>
+
+        {pick && (
+          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
+            <Icon name="play" className="h-4 w-4 shrink-0 text-accent" />
+            Up next:
+            <Link to={`/exercises/${pick.id}/session`} className="font-medium text-accent hover:underline">
+              {pick.title}
+            </Link>
+          </p>
+        )}
+      </section>
+
+      {referral && <ReferralCard referral={referral} />}
+    </div>
   )
 }
 
