@@ -2,7 +2,7 @@
 
 Just Stretch is a browser-based guided stretching app for people with minor chronic muscle pain. Watch a reference video, stretch in front of your webcam, and MediaPipe tracks your pose in the browser. The app compares your joint angles with the reference and saves a session score.
 
-This folder is the group's main app. It merges the JustStretch1 interface (emerald and slate palette, bold italic headings, sliding login card, team section, streak and benefits panels) with the full-stack features from the Laravel build, converted to React + Node: real accounts, the exercise library, session history and the pose-scored webcam session. Stack: Vite + React 19 + React Router 7 + Tailwind CSS v4 on the front, an Express 5 REST API with MongoDB (Mongoose) on the back.
+This folder is the group's main app. It merges the JustStretch1 interface (emerald and slate palette, bold italic headings, sliding login card, team section, streak and benefits panels) with the full-stack features from the Laravel build, converted to React + Node: real accounts with email verification and password reset, the exercise library, session history and the pose-scored webcam session. Stack: Vite + React 19 + React Router 7 + Tailwind CSS v4 on the front, an Express 5 REST API with MongoDB (Mongoose) on the back.
 
 A copy of the conversion on its own (Laravel look) is in `../Laravel converted to React/`.
 
@@ -45,6 +45,19 @@ The API reads `MONGODB_URI` from `server/.env` (copy `server/.env.example` to `s
 
 `npm run seed` does nothing (and says why) when no MongoDB is reachable, because the in-memory database seeds itself.
 
+### Email and verification
+
+New accounts must confirm their email with a 6-digit code before they can log in. Existing accounts from before this feature are marked as verified the first time the API starts; the migration only touches users missing the `emailVerifiedAt` field, so it will not re-verify new sign-ups. `npm --prefix server run migrate` runs it manually.
+
+Copy the mail settings from `server/.env.example` into `server/.env`:
+
+- `MAIL_TRANSPORT=console` logs verification codes and reset links in development, without sending mail.
+- With `MAIL_TRANSPORT=smtp`, real addresses use SMTP. In development, fake addresses (`.test`, `.example`, `.invalid`, `localhost`, `example.com/net/org`) are logged instead, so the seeded demo account never sends real mail.
+- For Gmail, use a Google **App Password** in `SMTP_PASS`, not the account password. The supplied setup uses `smtp.gmail.com`, port 465 and `SMTP_SECURE=true`.
+- Production refuses to start with `MAIL_TRANSPORT=console` or `memory`, without SMTP credentials, without a random `SESSION_SECRET` of at least 32 characters, or when `APP_URL` is not HTTPS.
+
+`APP_URL` is the client origin used in password-reset links (for example `http://localhost:5173`). `TRUST_PROXY` defaults to `1`; set it to `false` if the API is not behind a proxy.
+
 ### Windows notes for groupmates
 
 - Use PowerShell and run commands one per line (PowerShell 5.1 has no `&&`).
@@ -59,7 +72,7 @@ The API reads `MONGODB_URI` from `server/.env` (copy `server/.env.example` to `s
 |---|---|
 | `demo@juststretch.test` | `password` |
 
-Other seeded accounts (same password): `miguel.estallo@example.net`, `rene.baterbonia@gmail.com`, and 7 generated users.
+Other seeded accounts (same password): `miguel.estallo@example.net`, `rene.baterbonia@gmail.com`, and 7 generated users. All seeded accounts are already email-verified, so the demo logs in with a password only.
 
 The demo user owns *Neck Side Tilt*, *Overhead Side Bend* and *Standing Torso Twist*, so edit/delete can be shown. Every other exercise belongs to someone else: open its `/exercises/<id>/edit` page to see the 403 page. Exercise ids are Mongo ids that change on every seed, so open the exercise from the library and add `/edit` to the address.
 
@@ -71,6 +84,7 @@ The six exercises in the library each have a reference video and pose file and a
 |---|---|
 | `npm run dev` | Client and API together |
 | `npm run seed` | Reset and reseed the database in `MONGODB_URI` |
+| `npm --prefix server run migrate` | Mark accounts created before email verification as verified |
 | `npm --prefix server run backfill` | Give older sessions synthetic per-joint results (`-- --undo` takes them back out) |
 | `npm run build` | Production build of the client into `dist/` |
 | `npm run lint` | ESLint for client and server |
@@ -82,7 +96,9 @@ The six exercises in the library each have a reference video and pose file and a
 |---|---|---|
 | Landing (hero, how it works, features, contact) | `/` | Public |
 | About and team | `/about` | Public |
-| Login / Register (one sliding card) | `/login`, `/register` | Guests only |
+| Forgot password | `/forgot-password` | Public |
+| Reset password (one-time link) | `/reset-password?token=…` | Public |
+| Login / Register (one sliding card, then email verification) | `/login`, `/register` | Guests only |
 | Dashboard (stats, suggestions, streak, benefits) | `/dashboard` | Logged in |
 | Exercise library (search, filters, pagination in the URL) | `/exercises` | Logged in |
 | Add exercise | `/exercises/new` | Logged in |
@@ -91,7 +107,7 @@ The six exercises in the library each have a reference video and pose file and a
 | Webcam session | `/exercises/:id/session` | Logged in |
 | Session history | `/sessions` | Logged in |
 | Session detail (per-joint results) | `/sessions/:id` | Owner only |
-| Profile (body map, flexibility, account) | `/profile` | Logged in |
+| Profile (body map, flexibility, name, email, password, sessions) | `/profile` | Logged in |
 
 ## Sessions
 
@@ -105,9 +121,16 @@ All routes are under `/api`. Errors are JSON; validation failures return `422 { 
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/auth/register`, `/auth/login`, `/auth/logout` | Server-side session cookie (httpOnly, `sameSite: lax`) |
-| GET | `/auth/me` | `{ user }` or `{ user: null }` |
-| PATCH / PUT / DELETE | `/profile`, `/profile/password`, `/profile` | Name and email, password, delete account |
+| POST | `/auth/register`, `/auth/login` | Creates a pending verification session or logs in; unverified logins send a new code |
+| POST | `/auth/verify-email`, `/auth/resend-verification`, `/auth/cancel-verification` | 6-digit code, 10-minute expiry, 5 attempts, 60-second resend cooldown, at most 3 sends |
+| POST | `/auth/logout`, `/auth/logout-others`, `/auth/logout-all` | Ends the current session or revokes others/all |
+| POST | `/auth/forgot-password`, `/auth/reset-password` | Generic reset response; reset links expire after one hour and work once |
+| GET | `/auth/me` | `{ user }` for a verified session, `{ user: null, verificationRequired: true, … }` while pending, or `{ user: null }` |
+| GET / DELETE | `/auth/sessions`, `/auth/sessions/:id` | Signed-in browsers; revoking a session also removes its server-side session |
+| PATCH | `/profile` | Name only |
+| PUT | `/profile/email` | Requires the current password; signs out everywhere and verifies the new address at next login |
+| PUT | `/profile/password` | Requires the current password; keeps this session, revokes the others |
+| DELETE | `/profile` | Requires the password; removes the account and its auth records |
 | GET / PUT | `/profile` | The body map (pain areas) and the starting flexibility baseline. PUT changes nothing else about the account |
 | GET / POST | `/exercises` | 9 per page; `search`, `area`, `difficulty`, `page` |
 | GET / PUT / DELETE | `/exercises/:id` | PUT and DELETE are author only |

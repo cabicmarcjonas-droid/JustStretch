@@ -25,7 +25,10 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 255 },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 255 },
-    password: { type: String, required: true }, // bcrypt hash
+    password: { type: String, required: true, select: false }, // bcrypt hash
+    emailVerifiedAt: { type: Date, default: null },
+    passwordChangedAt: { type: Date, default: null },
+    authVersion: { type: Number, default: 0, min: 0 },
     // Where the member hurts. Optional: members who never filled the body map
     // simply have none.
     painAreas: { type: [{ type: String, enum: BODY_AREA_VALUES }], default: [] },
@@ -34,6 +37,6 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
-applyJsonTransform(userSchema, ['password'])
+applyJsonTransform(userSchema, ['password', 'authVersion', 'passwordChangedAt'])
 
 export const User = mongoose.model('User', userSchema)

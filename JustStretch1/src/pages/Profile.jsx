@@ -7,15 +7,17 @@ import { useAuth } from '../context/AuthContext.jsx'
 import AppLayout from '../layouts/AppLayout.jsx'
 import { api } from '../lib/api.js'
 import { PAIN_AREAS, areaLabel } from '../lib/enums.js'
-import { initials } from '../lib/format.js'
+import { formatDate, initials, timeAgo } from '../lib/format.js'
 import { useFetch, useForm } from '../lib/hooks.js'
 import { btn, card, pageTitle } from '../lib/ui.js'
 
 const SECTIONS = [
   { id: 'body', label: 'Body map', icon: 'body' },
   { id: 'flexibility', label: 'Flexibility', icon: 'chart' },
-  { id: 'profile', label: 'Profile', icon: 'user' },
+  { id: 'profile', label: 'Name', icon: 'user' },
+  { id: 'email', label: 'Email', icon: 'mail' },
   { id: 'password', label: 'Password', icon: 'key' },
+  { id: 'sessions', label: 'Sessions', icon: 'users' },
   { id: 'delete', label: 'Delete account', icon: 'trash' },
 ]
 
@@ -52,6 +54,33 @@ function SavedNote() {
       Saved
     </p>
   ) : null
+}
+
+function describeSession(userAgent = '') {
+  const ua = String(userAgent)
+  const browser = /Edg\//.test(ua)
+    ? 'Edge'
+    : /OPR\//.test(ua)
+      ? 'Opera'
+      : /CriOS|Chrome\//.test(ua)
+        ? 'Chrome'
+        : /FxiOS|Firefox\//.test(ua)
+          ? 'Firefox'
+          : /Safari\//.test(ua)
+            ? 'Safari'
+            : 'Unknown browser'
+  const platform = /Windows NT/.test(ua)
+    ? 'Windows'
+    : /Android/.test(ua)
+      ? 'Android'
+      : /iPhone|iPad/.test(ua)
+        ? 'iOS'
+        : /Mac OS X/.test(ua)
+          ? 'macOS'
+          : /Linux/.test(ua)
+            ? 'Linux'
+            : 'Unknown device'
+  return `${browser} on ${platform}`
 }
 
 function SectionHeader({ title, danger = false, children }) {
@@ -198,7 +227,7 @@ function BodyAndFlexibilityForm({ profile }) {
 
 function ProfileInformation() {
   const { user, setUser } = useAuth()
-  const form = useForm({ name: user.name, email: user.email })
+  const form = useForm({ name: user.name })
   const [savedAt, setSavedAt] = useState(0)
 
   const submit = (event) => {
@@ -212,7 +241,7 @@ function ProfileInformation() {
 
   return (
     <section id="profile" className={`${card} scroll-mt-8 overflow-hidden p-5 sm:p-6`}>
-      <SectionHeader title="Profile information">Update your name and the email address you log in with.</SectionHeader>
+      <SectionHeader title="Your name">This is the name shown in the menu and on exercises you add.</SectionHeader>
 
       <form onSubmit={submit} className="max-w-xl space-y-5">
         <div className="flex items-center gap-4">
@@ -228,18 +257,75 @@ function ProfileInformation() {
           <InputError className="mt-2" messages={form.errors.name} />
         </div>
 
-        <div>
-          <InputLabel htmlFor="email" value="Email" />
-          <TextInput id="email" type="email" className="mt-1.5" required autoComplete="username" {...form.bind('email')} />
-          <InputError className="mt-2" messages={form.errors.email} />
-        </div>
-
         <InputError messages={form.errors._form} />
 
         <div className="flex items-center gap-4">
           <PrimaryButton disabled={form.processing}>Save</PrimaryButton>
           {savedAt > 0 && <SavedNote key={savedAt} />}
         </div>
+      </form>
+    </section>
+  )
+}
+
+function EmailAddress() {
+  const { user, setUser } = useAuth()
+  const navigate = useNavigate()
+  const form = useForm({ email: '', currentPassword: '' })
+
+  const submit = (event) => {
+    event.preventDefault()
+    form.submit(async (values) => {
+      const result = await api.put('/profile/email', values)
+      setUser(null)
+      navigate('/login', { state: { flash: result.message } })
+    })
+  }
+
+  return (
+    <section id="email" className={`${card} scroll-mt-8 overflow-hidden p-5 sm:p-6`}>
+      <SectionHeader title="Email address">
+        Changing your email signs you out everywhere. You will verify the new address the next time you log in.
+      </SectionHeader>
+
+      <div className="mb-6 flex flex-wrap items-center gap-2 text-sm">
+        <span className="font-medium text-ink">{user.email}</span>
+        <span className={user.emailVerifiedAt ? 'rounded bg-accent-soft px-1.5 py-0.5 text-[11px] font-medium text-accent-dark' : 'rounded bg-caution-soft px-1.5 py-0.5 text-[11px] font-medium text-caution'}>
+          {user.emailVerifiedAt ? 'Verified' : 'Not verified'}
+        </span>
+      </div>
+
+      <form onSubmit={submit} className="max-w-xl space-y-5">
+        <div>
+          <InputLabel htmlFor="new_email" value="New email" />
+          <TextInput
+            id="new_email"
+            type="email"
+            className="mt-1.5"
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            {...form.bind('email')}
+          />
+          <InputError className="mt-2" messages={form.errors.email} />
+        </div>
+
+        <div>
+          <InputLabel htmlFor="email_current_password" value="Current password" />
+          <TextInput
+            id="email_current_password"
+            type="password"
+            className="mt-1.5"
+            required
+            autoComplete="current-password"
+            {...form.bind('currentPassword')}
+          />
+          <InputError className="mt-2" messages={form.errors.currentPassword} />
+        </div>
+
+        <InputError messages={form.errors._form} />
+
+        <PrimaryButton disabled={form.processing}>Update email</PrimaryButton>
       </form>
     </section>
   )
@@ -260,7 +346,9 @@ function UpdatePassword() {
 
   return (
     <section id="password" className={`${card} scroll-mt-8 overflow-hidden p-5 sm:p-6`}>
-      <SectionHeader title="Password">Use a long password you don&apos;t use anywhere else. At least 8 characters.</SectionHeader>
+      <SectionHeader title="Password">
+        Use a long password you don&apos;t use anywhere else. At least 8 characters. Changing it signs out your other sessions.
+      </SectionHeader>
 
       <form onSubmit={submit} className="max-w-xl space-y-5">
         <div>
@@ -302,6 +390,101 @@ function UpdatePassword() {
           {savedAt > 0 && <SavedNote key={savedAt} />}
         </div>
       </form>
+    </section>
+  )
+}
+
+function Sessions() {
+  const { data, error, loading, reload } = useFetch('/auth/sessions')
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [actionError, setActionError] = useState('')
+
+  const revoke = async (id) => {
+    setBusy(true)
+    setActionError('')
+    try {
+      await api.delete(`/auth/sessions/${id}`)
+      setNotice('Session revoked.')
+      reload()
+    } catch (requestError) {
+      setActionError(requestError.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const revokeOthers = async () => {
+    setBusy(true)
+    setActionError('')
+    try {
+      const result = await api.post('/auth/logout-others')
+      setNotice(result.count > 0 ? `${result.count} other session${result.count === 1 ? '' : 's'} signed out.` : 'No other sessions are signed in.')
+      reload()
+    } catch (requestError) {
+      setActionError(requestError.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const sessions = data?.data ?? []
+  const hasOthers = sessions.some((session) => !session.current)
+
+  return (
+    <section id="sessions" className={`${card} scroll-mt-8 overflow-hidden p-5 sm:p-6`}>
+      <SectionHeader title="Signed-in sessions">
+        These are the browsers currently signed in to your account. Revoke anything you do not recognise.
+      </SectionHeader>
+
+      {loading && <p className="text-sm text-muted">Loading sessions…</p>}
+      {error && <p className="text-sm text-danger">{error.message}</p>}
+
+      {!loading && !error && (
+        <ul className="divide-y divide-line rounded-md border border-line">
+          {sessions.map((session) => (
+            <li key={session.id} className="flex flex-wrap items-start justify-between gap-4 px-4 py-3.5">
+              <div className="flex min-w-0 items-start gap-3">
+                <Icon name="clock" className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
+                    {describeSession(session.userAgent)}
+                    {session.current && <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[11px] font-medium text-accent-dark">This device</span>}
+                  </p>
+                  <p className="mt-0.5 text-[13px] text-muted">
+                    Last active {timeAgo(session.lastSeenAt)} · {session.ip || 'Unknown address'}
+                  </p>
+                  <p className="mt-0.5 text-[13px] text-muted">Signed in {formatDate(session.createdAt)}</p>
+                </div>
+              </div>
+              {!session.current && (
+                <button type="button" onClick={() => revoke(session.id)} disabled={busy} className={`${btn.ghost} ${btn.sm}`}>
+                  Revoke
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {notice && (
+        <p className="mt-4 text-sm font-medium text-accent" role="status">
+          {notice}
+        </p>
+      )}
+      {actionError && (
+        <p className="mt-4 text-sm text-danger" role="alert">
+          {actionError}
+        </p>
+      )}
+
+      {hasOthers && (
+        <div className="mt-5">
+          <SecondaryButton onClick={revokeOthers} disabled={busy}>
+            Log out other sessions
+          </SecondaryButton>
+        </div>
+      )}
     </section>
   )
 }
@@ -384,7 +567,9 @@ export default function Profile() {
         <div className="min-w-0 space-y-6">
           <BodyAndFlexibility />
           <ProfileInformation />
+          <EmailAddress />
           <UpdatePassword />
+          <Sessions />
           <DeleteAccount />
         </div>
       </div>

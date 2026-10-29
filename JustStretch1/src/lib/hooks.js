@@ -89,6 +89,12 @@ export function useForm(initial) {
     onChange: (event) => setField(name, event.target.value),
   })
 
+  const bindCheckbox = (name) => ({
+    name,
+    checked: Boolean(values[name]),
+    onChange: (event) => setField(name, event.target.checked),
+  })
+
   const submit = useCallback(
     async (action) => {
       setProcessing(true)
@@ -109,5 +115,5 @@ export function useForm(initial) {
     [values],
   )
 
-  return { values, setValues, setField, bind, errors, setErrors, processing, submit }
+  return { values, setValues, setField, bind, bindCheckbox, errors, setErrors, processing, submit }
 }

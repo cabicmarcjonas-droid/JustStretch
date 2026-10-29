@@ -5,11 +5,17 @@ import { faker } from '@faker-js/faker'
 import bcrypt from 'bcrypt'
 import mongoose from 'mongoose'
 import { pathToFileURL } from 'node:url'
+import { EmailVerificationChallenge } from '../models/EmailVerificationChallenge.js'
 import { Exercise } from '../models/Exercise.js'
+import { PasswordResetToken } from '../models/PasswordResetToken.js'
 import { StretchSession } from '../models/StretchSession.js'
 import { Therapist } from '../models/Therapist.js'
 import { User } from '../models/User.js'
+<<<<<<< HEAD
 import { limbResultsFromJointResults } from '../shared/limbs.js'
+=======
+import { UserSession } from '../models/UserSession.js'
+>>>>>>> feature/auth-email-verification
 
 export const DEMO_EMAIL = 'demo@juststretch.test'
 
@@ -215,7 +221,8 @@ async function seedUsers() {
     generated.push({ name: faker.person.fullName(), email })
   }
 
-  return User.insertMany([...named, ...generated].map((u) => ({ ...u, password })))
+  const verifiedAt = new Date()
+  return User.insertMany([...named, ...generated].map((u) => ({ ...u, password, emailVerifiedAt: verifiedAt })))
 }
 
 async function seedExercises(demo, others) {
@@ -283,8 +290,24 @@ export async function seedDatabase() {
   // Fixed seed so every run (and every groupmate's laptop) gets the same data.
   faker.seed(20261016)
 
-  await Promise.all([User.deleteMany({}), Exercise.deleteMany({}), StretchSession.deleteMany({}), Therapist.deleteMany({})])
-  await Promise.all([User.init(), Exercise.init(), StretchSession.init(), Therapist.init()])
+  await Promise.all([
+    User.deleteMany({}),
+    Exercise.deleteMany({}),
+    StretchSession.deleteMany({}),
+    Therapist.deleteMany({}),
+    UserSession.deleteMany({}),
+    EmailVerificationChallenge.deleteMany({}),
+    PasswordResetToken.deleteMany({}),
+  ])
+  await Promise.all([
+    User.init(),
+    Exercise.init(),
+    StretchSession.init(),
+    Therapist.init(),
+    UserSession.init(),
+    EmailVerificationChallenge.init(),
+    PasswordResetToken.init(),
+  ])
 
   const users = await seedUsers()
   const demo = users.find((u) => u.email === DEMO_EMAIL)

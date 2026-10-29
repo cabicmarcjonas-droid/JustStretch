@@ -6,6 +6,7 @@ export class ApiError extends Error {
     this.status = status
     // Laravel-style validation errors: { field: [messages] }
     this.errors = body?.errors ?? {}
+    this.retryAfterSeconds = body?.retryAfterSeconds ?? null
   }
 }
 

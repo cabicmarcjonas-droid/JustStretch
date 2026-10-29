@@ -97,11 +97,14 @@ export function emailField(label = 'email') {
     .transform((v) => v.toLowerCase())
 }
 
-// Breeze's Password::defaults(): at least 8 characters.
+// Breeze's Password::defaults(): at least 8 characters, at most 72 UTF-8 bytes (bcrypt's limit).
 export function newPasswordField(label = 'password') {
   return z
     .string({ error: (iss) => (missing(iss.input) ? required(label) : `The ${label} field must be a string.`) })
     .min(8, { error: `The ${label} field must be at least 8 characters.` })
+    .refine((value) => Buffer.byteLength(value, 'utf8') <= 72, {
+      error: `The ${label} field must not be greater than 72 bytes.`,
+    })
 }
 
 // Adds Laravel's `confirmed` rule: error is reported on the password field.
