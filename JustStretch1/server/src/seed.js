@@ -11,11 +11,8 @@ import { PasswordResetToken } from '../models/PasswordResetToken.js'
 import { StretchSession } from '../models/StretchSession.js'
 import { Therapist } from '../models/Therapist.js'
 import { User } from '../models/User.js'
-<<<<<<< HEAD
 import { limbResultsFromJointResults } from '../shared/limbs.js'
-=======
 import { UserSession } from '../models/UserSession.js'
->>>>>>> feature/auth-email-verification
 
 export const DEMO_EMAIL = 'demo@juststretch.test'
 
