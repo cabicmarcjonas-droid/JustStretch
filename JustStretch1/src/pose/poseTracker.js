@@ -19,6 +19,8 @@ import { DelayInjector, parseDelayOptions } from '../lib/delayInjector.js'
 import { emit } from '../lib/eventBus.js'
 import { LIMB_BY_JOINT } from '../lib/limbs.js'
 import { PerfMonitor } from '../lib/perfMonitor.js'
+import { scriptForExercise, slugFromVideo } from '../lib/scripts/index.js'
+import { ScriptRunner } from '../lib/scriptRunner.js'
 import {
   LimbScorer,
   SessionScorer,
@@ -183,6 +185,22 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     refreshSoundButton()
   }
   refreshSoundButton()
+
+  // Step-by-step spoken script for this exercise (see lib/scripts). An exercise without a
+  // script runs tracking only. `currentAngles` is this frame's smoothed angles, for the script.
+  const script = scriptForExercise(slugFromVideo(videoUrl))
+  let scriptLine = ''
+  let currentAngles = null
+  const runner = script
+    ? new ScriptRunner(script, {
+        coach,
+        onStatus: (line) => {
+          scriptLine = line
+        },
+        // To end the session when the script ends, call finish('complete') here.
+        onDone: () => {},
+      })
+    : null
 
   let destroyed = false
   let landmarker = null
@@ -574,6 +592,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
 
     // Compare the live pose with the Blender reference (only when one exists).
     latest = null
+    currentAngles = null
     if (reference && pose?.length) {
       const raw = computeUserAngles(pose, video.videoWidth, video.videoHeight, reference)
       const angles = {}
@@ -586,6 +605,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
         smoothed[name] = smoothed[name] == null ? value : smoothed[name] + 0.4 * (value - smoothed[name])
         angles[name] = smoothed[name]
       }
+      currentAngles = angles
       const elapsedSec = (performance.now() - startedAt) / 1000
       latest = compareToReference(angles, reference, elapsedSec)
       scorer.add(latest)
@@ -607,6 +627,8 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
           : 'No body detected. Step back so the camera can see you.',
         'warn',
       )
+    } else if (runner?.running && scriptLine) {
+      setStatus(scriptLine, 'ok')
     } else if (latest) {
       setStatus(
         latest.good ? 'Good form. Keep it up.' : 'Adjust your form: red joints are off the reference.',
@@ -616,13 +638,16 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
       setStatus('Tracking. Green joints are the ones this stretch targets.', 'ok')
     }
 
+    // While a script is running, the "adjust" and "good" cues stay quiet: the reference is
+    // compared by clock time, which the script's own pacing does not follow. "Step back" still plays.
     coach.update({
       now: tProcess,
       inFrame,
-      tracked: Boolean(latest),
+      tracked: Boolean(latest) && !runner?.running,
       good: Boolean(latest?.good),
       worstJoint: latest && !latest.good ? worstJointName(latest) : null,
     })
+    runner?.tick({ now: tProcess, inFrame, angles: currentAngles })
 
     if (pose?.length) {
       // Skip the pose model's coarse hand points when real finger tracking is available.
@@ -811,6 +836,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     pausedAt = performance.now()
     stopLoopAndClock()
     coach.stop() // a form cue mid-utterance would describe a paused session
+    runner?.pause()
     setStatus('Paused. Your time and tracking are on hold.', 'ok')
     refreshPauseButton()
   }
@@ -831,6 +857,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     setRunning(true)
     setStatus(statusMessage, 'ok')
     startLoop()
+    runner?.resume(performance.now())
     refreshPauseButton()
   }
 
@@ -841,6 +868,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     // overwriting it, or the paused stretch would be counted as active time.
     if (pausedAt == null) pausedAt = performance.now()
     stopLoopAndClock()
+    runner?.pause()
     showCameraWarning(true, message)
     setStatus(status, 'error')
     refreshPauseButton()
@@ -946,6 +974,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
   const halt = () => {
     stopLoopAndClock()
     hideCountdown()
+    runner?.stop()
     clearTimeout(trialId)
     trialId = null
     coach.stop()
@@ -1189,6 +1218,8 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
 
     setRunning(true)
     refreshPauseButton()
+    scriptLine = ''
+    runner?.start(performance.now())
 
     if (trialSeconds) {
       // The ?perf trial starts when tracking starts (after the countdown), so a
@@ -1249,7 +1280,9 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
   const poseUrl = poseUrlFromVideo(videoUrl)
   if (poseUrl) {
     loadReference(poseUrl).then((loaded) => {
-      if (!destroyed) reference = loaded
+      if (destroyed) return
+      reference = loaded
+      if (runner) runner.reference = loaded
     })
   }
 

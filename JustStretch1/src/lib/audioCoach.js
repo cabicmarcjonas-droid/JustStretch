@@ -88,6 +88,37 @@ export class AudioCoach {
     this.synth?.cancel()
   }
  
+  // Speaks one line of an exercise script. Resolves when the line has finished, or when a
+  // time estimate has passed if speech is off, so the script keeps its pace either way.
+  speak(text) {
+    return new Promise((resolve) => {
+      if (!this.enabled) {
+        setTimeout(resolve, Math.max(1500, text.length * 70))
+        return
+      }
+      this.scriptSpeaking = true
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = this.lang
+      utterance.rate = this.rate
+      const voice = this.pickVoice()
+      if (voice) utterance.voice = voice
+      let finished = false
+      let safety = null
+      const done = () => {
+        if (finished) return
+        finished = true
+        clearTimeout(safety)
+        this.scriptSpeaking = false
+        resolve()
+      }
+      utterance.onend = done
+      utterance.onerror = done
+      // Some browsers never fire onend for long lines; do not let the script hang on that.
+      safety = setTimeout(done, Math.max(4000, text.length * 120 + 3000))
+      this.synth.speak(utterance)
+    })
+  }
+ 
   // Some browsers (iOS Safari especially) only allow speech that starts inside a tap.
   // Calling this from the Start button's click handler unlocks it for the rest of the session.
   unlock() {
@@ -116,7 +147,7 @@ export class AudioCoach {
    * @param {object} options { urgent: interrupt current speech, cooldownMs: repeat delay for this key }
    */
   say(key, text, { urgent = false, cooldownMs = this.repeatMs } = {}) {
-    if (!this.enabled) return false
+    if (!this.enabled || this.scriptSpeaking) return false
  
     const now = performance.now()
     if (now - (this.lastByKey.get(key) ?? -Infinity) < cooldownMs) return false

@@ -1,3 +1,4 @@
+
 // resources/js/poseComparison.js
 //
 // Compares the user's live MediaPipe pose with a Blender reference file
@@ -124,7 +125,12 @@ export function computeUserAngles(lm, width, height, ref, minVisibility = 0.6) {
   };
   for (const [name, [d1, d2]] of Object.entries(ref.vectorPair)) {
     const u = vector(d1), v = vector(d2);
-    out[name] = u && v ? angleBetween(u, v) : null;
+    const angle = u && v ? angleBetween(u, v) : null;
+    out[name] = angle;
+    // Signed twin (e.g. neck_tilt_signed) so a script can tell a left lean from a right lean.
+    // The unsigned value above is untouched, so scoring against the reference is unchanged.
+    // The sign is the side of the cross product: which sign means "right" is set in the script runner.
+    out[`${name}_signed`] = angle == null ? null : (u[0] * v[1] - u[1] * v[0] < 0 ? -angle : angle);
   }
   return out;
 }
