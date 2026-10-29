@@ -75,6 +75,8 @@ const BACKOFF_WARMUP = 60 // frames, so the slow first inferences don't trigger 
 const MIN_VISIBILITY = 0.6
 // About a third of a second at 30 FPS before the step-back message appears.
 const UNSEEN_FRAMES_BEFORE_PROMPT = 10
+// How long the member must stay in view before the spoken instructions start (or resume).
+const SCRIPT_VISIBLE_MS = 500
 
 /**
  * @param {object} els   Element refs: video, canvas, overlay, startButton, stopButton, timer,
@@ -191,6 +193,12 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
   const script = scriptForExercise(slugFromVideo(videoUrl))
   let scriptLine = ''
   let currentAngles = null
+  // The script only talks while the member can be tracked:
+  //   'pending'  session started, waiting for the member to be in view before the first step
+  //   'held'     the member left the frame (or the session was paused): waiting to repeat the step
+  //   'open'     the script is running
+  let scriptGate = 'open'
+  let scriptVisibleSince = null
   const runner = script
     ? new ScriptRunner(script, {
         coach,
@@ -314,6 +322,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     updateProgress(elapsed)
     const hasTarget = targetSeconds > 0
     timeLeftWrap?.classList.toggle('hidden', !hasTarget)
+    timeLeftWrap?.classList.toggle('inline-flex', hasTarget)
     progressTrack?.classList.toggle('hidden', !hasTarget)
     if (!hasTarget) return
     const remaining = Math.max(0, targetSeconds - elapsed)
@@ -555,6 +564,30 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     }
   }
 
+  // Keeps the spoken instructions quiet until the member can be tracked:
+  //   out of view      -> the script stops talking; the coach says "Step back so the camera can see you."
+  //   back in view     -> the coach says "I can see you now." (only if it asked them to step back)
+  //   then             -> the script starts, or repeats the step it was on
+  const gateScript = (now, inFrame) => {
+    if (!inFrame) {
+      scriptVisibleSince = null
+      if (scriptGate === 'open' && runner.running && unseenFrames >= UNSEEN_FRAMES_BEFORE_PROMPT) {
+        runner.pause()
+        scriptGate = 'held'
+      }
+      return
+    }
+    if (scriptGate === 'open') return
+    scriptVisibleSince ??= now
+    // Wait for "I can see you now" first, so the instruction never cuts it off. With sound
+    // off the coach never says it, so do not wait for it then.
+    const awaitingSeeYou = coach.enabled && coach.promptedUnseen
+    if (awaitingSeeYou || now - scriptVisibleSince < SCRIPT_VISIBLE_MS) return
+    if (scriptGate === 'pending') runner.start(now)
+    else runner.resume(now)
+    scriptGate = 'open'
+  }
+
   // 3–5. One camera frame: detect, draw the frame, the full skeleton, then the target joints.
   //   captureTime  when the camera captured the frame (performance.now() clock), if the browser says
   //   dropped      camera frames skipped since the last one we processed, or null if unknown
@@ -640,14 +673,18 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
 
     // While a script is running, the "adjust" and "good" cues stay quiet: the reference is
     // compared by clock time, which the script's own pacing does not follow. "Step back" still plays.
+    const scriptActive = Boolean(runner) && (runner.running || scriptGate !== 'open')
     coach.update({
       now: tProcess,
       inFrame,
-      tracked: Boolean(latest) && !runner?.running,
+      tracked: Boolean(latest) && !scriptActive,
       good: Boolean(latest?.good),
       worstJoint: latest && !latest.good ? worstJointName(latest) : null,
     })
-    runner?.tick({ now: tProcess, inFrame, angles: currentAngles })
+    if (runner) {
+      gateScript(tProcess, inFrame)
+      if (scriptGate === 'open') runner.tick({ now: tProcess, inFrame, angles: currentAngles })
+    }
 
     if (pose?.length) {
       // Skip the pose model's coarse hand points when real finger tracking is available.
@@ -839,6 +876,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     runner?.pause()
     setStatus('Paused. Your time and tracking are on hold.', 'ok')
     refreshPauseButton()
+    emit('session-paused', true)
   }
 
   // Shared unpause for the Resume button and a recovered camera. The pause is
@@ -857,8 +895,11 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     setRunning(true)
     setStatus(statusMessage, 'ok')
     startLoop()
-    runner?.resume(performance.now())
+    // The script repeats its current line only once the member is back in view (see gateScript).
+    if (runner?.running && scriptGate === 'open') scriptGate = 'held'
+    scriptVisibleSince = null
     refreshPauseButton()
+    emit('session-paused', false)
   }
 
   const pauseForCamera = (message = CAMERA_LOST_MESSAGE, status = 'Camera disconnected. Session paused.') => {
@@ -872,6 +913,7 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     showCameraWarning(true, message)
     setStatus(status, 'error')
     refreshPauseButton()
+    emit('session-paused', true)
   }
 
   const resumeFromCamera = async () => {
@@ -938,12 +980,14 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     for (const id of countdownTimers) clearTimeout(id)
     countdownTimers = []
     countdownEl?.classList.add('hidden')
+    countdownEl?.classList.remove('flex')
   }
 
   const runCountdown = (begin) => {
     countdownActive = true
     overlay.classList.add('hidden') // the "camera is off" note makes way for the preview
     countdownEl?.classList.remove('hidden')
+    countdownEl?.classList.add('flex') // centres the number over the camera
     setStatus('Get into position…', 'ok')
     const steps = [3, 2, 1]
     const step = (index) => {
@@ -1167,6 +1211,10 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
       return
     }
 
+    // A new attempt. finish() left `sessionEnded` set from the previous session, and
+    // the countdown and beginSession() both bail out on it, so Restart would stall.
+    sessionEnded = false
+
     // The page may disable its session controls (duration presets) while the
     // camera is live; finish() emits the matching `false`.
     emit('session-running', true)
@@ -1219,7 +1267,11 @@ export function initPoseTracker(els, { videoUrl, landmarks = [], highlightHands 
     setRunning(true)
     refreshPauseButton()
     scriptLine = ''
-    runner?.start(performance.now())
+    // The first instruction waits until the member is tracked (see gateScript).
+    scriptGate = runner ? 'pending' : 'open'
+    scriptVisibleSince = null
+    // "Go": the reference video starts here, not during the countdown.
+    emit('session-started')
 
     if (trialSeconds) {
       // The ?perf trial starts when tracking starts (after the countdown), so a

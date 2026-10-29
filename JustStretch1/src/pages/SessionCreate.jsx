@@ -354,10 +354,41 @@ function ScoreForm({ exercise }) {
 }
 
 // The reference video fills its tile. Without a playable file it shows the poster frame or a note.
+// It follows the session: rewinds and waits during the 3-2-1 countdown, plays from the
+// start at "Go", pauses with Pause (or a lost camera), picks up again on Resume, and
+// stops when the session ends.
 function ReferenceVideo({ url }) {
+  const videoEl = useRef(null)
+
+  useEffect(() => {
+    const play = (fromStart = false) => {
+      const el = videoEl.current
+      if (!el) return
+      if (fromStart) el.currentTime = 0
+      el.play().catch(() => {}) // autoplay can be refused; the controls still work
+    }
+    const pause = (rewind = false) => {
+      const el = videoEl.current
+      if (!el) return
+      el.pause()
+      if (rewind) el.currentTime = 0
+    }
+
+    // `session-running` true fires when the camera is ready, before the countdown.
+    const offRunning = on('session-running', (running) => pause(running))
+    const offStarted = on('session-started', () => play(true))
+    const offPaused = on('session-paused', (paused) => (paused ? pause() : play()))
+    return () => {
+      offRunning()
+      offStarted()
+      offPaused()
+    }
+  }, [])
+
   if (url && hasPlayableVideo(url)) {
     return (
       <video
+        ref={videoEl}
         src={url}
         poster={thumbnailFor(url) ?? undefined}
         controls
